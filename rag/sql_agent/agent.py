@@ -10,9 +10,7 @@ from typing import Dict, Any, List, Optional
 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_community.utilities import SQLDatabase
-from langchain_community.agent_toolkits import SQLDatabaseToolkit
-from langchain.agents import create_sql_agent
-from langchain.agents.agent_types import AgentType
+from langchain_community.agent_toolkits import SQLDatabaseToolkit, create_sql_agent
 from langchain_core.prompts import PromptTemplate
 
 from ..config import settings, get_postgres_url, get_google_api_key
@@ -66,11 +64,9 @@ class SQLAgent:
         return create_sql_agent(
             llm=self.llm,
             toolkit=self.toolkit,
-            agent_type=AgentType.ZERO_SHOT_REACT_DESCRIPTION,
             verbose=True,
             handle_parsing_errors=True,
             max_iterations=settings.sql_agent_max_iterations,
-            early_stopping_method="generate",
         )
 
     def _build_prompt(self, question: str, filters: Dict[str, Any] = None) -> str:
