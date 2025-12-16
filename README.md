@@ -113,39 +113,39 @@ python -X utf8 run_demo.py --backend-only
 
 ```
 maritime-rag-project/
-|
-+-- admin/                 # FastAPI server + ingester management
-|   +-- server.py          # Main API server
-|   +-- ingester_manager.py
-|
-+-- api/                   # API endpoints
-|   +-- rag_endpoints.py   # RAG query endpoints
-|   +-- chat_endpoints.py  # Chat interface
-|
-+-- dashboard/             # Next.js frontend
-|   +-- src/
-|       +-- app/           # Pages (/, /chat)
-|       +-- components/    # React components
-|           +-- globe/     # 3D globe visualization
-|           +-- chat/      # RAG chat interface
-|
-+-- ingestion/             # Data ingestion pipeline
-|   +-- fusion/            # Multi-sensor correlation
-|   +-- generators/        # Synthetic data generators
-|   +-- ingesters/         # Sensor-specific ingesters
-|   +-- parsers/           # Format parsers (NMEA, binary, GeoJSON)
-|   +-- shared/            # Fleet manager, world simulator
-|
-+-- rag/                   # RAG pipeline
-|   +-- router/            # Query classification
-|   +-- sql_agent/         # Text-to-SQL with LangChain
-|   +-- vector/            # pgvector semantic search
-|   +-- hybrid/            # Result fusion (RRF)
-|   +-- sync/              # Redis -> PostgreSQL sync
-|
-+-- scripts/               # Setup and utility scripts
-+-- docs/                  # Documentation
-    +-- ARCHITECTURE_DIAGRAMS.md  # System diagrams
+│
+├── admin/                 # FastAPI server + ingester management
+│   ├── server.py          # Main API server
+│   └── ingester_manager.py
+│
+├── api/                   # API endpoints
+│   ├── rag_endpoints.py   # RAG query endpoints
+│   └── chat_endpoints.py  # Chat interface
+│
+├── dashboard/             # Next.js frontend
+│   └── src/
+│       ├── app/           # Pages (/, /chat)
+│       └── components/    # React components
+│           ├── globe/     # 3D globe visualization
+│           └── chat/      # RAG chat interface
+│
+├── ingestion/             # Data ingestion pipeline
+│   ├── fusion/            # Multi-sensor correlation
+│   ├── generators/        # Synthetic data generators
+│   ├── ingesters/         # Sensor-specific ingesters
+│   ├── parsers/           # Format parsers (NMEA, binary, GeoJSON)
+│   └── shared/            # Fleet manager, world simulator
+│
+├── rag/                   # RAG pipeline
+│   ├── router/            # Query classification
+│   ├── sql_agent/         # Text-to-SQL with LangChain
+│   ├── vector/            # pgvector semantic search
+│   ├── hybrid/            # Result fusion (RRF)
+│   └── sync/              # Redis -> PostgreSQL sync
+│
+├── scripts/               # Setup and utility scripts
+└── docs/                  # Documentation
+    └── ARCHITECTURE_DIAGRAMS.md  # System diagrams
 ```
 
 ## How It Works
