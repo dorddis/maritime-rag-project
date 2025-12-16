@@ -34,6 +34,15 @@ except ImportError as e:
     cleanup_rag = None
     print(f"RAG module not available: {e}")
 
+# Import Chat router
+try:
+    from api.chat_endpoints import router as chat_router
+    CHAT_AVAILABLE = True
+except ImportError as e:
+    CHAT_AVAILABLE = False
+    chat_router = None
+    print(f"Chat module not available: {e}")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -94,6 +103,11 @@ app.add_middleware(
 if RAG_AVAILABLE and rag_router:
     app.include_router(rag_router)
     logger.info("RAG endpoints mounted at /api/rag")
+
+# Include Chat router
+if CHAT_AVAILABLE and chat_router:
+    app.include_router(chat_router)
+    logger.info("Chat endpoints mounted at /api/rag/chat")
 
 
 class StartRequest(BaseModel):
@@ -929,4 +943,4 @@ async def dashboard():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=8001)

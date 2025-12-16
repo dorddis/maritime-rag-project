@@ -3,20 +3,16 @@
 /**
  * Grid layout for ingester cards
  *
- * Shows World Simulator first (ground truth), then 4 sensor ingesters.
+ * Shows World Simulator first (ground truth), then 4 sensor ingesters,
+ * then Fusion Engine at the bottom.
  */
 
 import { IngesterCard } from "@/components/ingester/ingester-card";
 import { useLogStore } from "@/stores/log-store";
 
-// World simulator first, then sensors
-const INGESTER_ORDER = ["world", "ais", "radar", "satellite", "drone"];
-
 export function IngesterGrid() {
   const { status, logs } = useLogStore();
 
-  // Separate world from sensors for different layouts
-  const worldIngester = "world";
   const sensorIngesters = ["ais", "radar", "satellite", "drone"];
 
   return (
@@ -27,16 +23,16 @@ export function IngesterGrid() {
           Ground Truth (Start First)
         </div>
         <IngesterCard
-          key={worldIngester}
-          name={worldIngester}
-          status={status[worldIngester] || {
-            name: worldIngester,
+          key="world"
+          name="world"
+          status={status.world || {
+            name: "world",
             description: "World Simulator - Ground truth ship positions",
             running: false,
             redis_stream: "",
             status_key: "maritime:fleet:metadata",
           }}
-          logs={logs[worldIngester] || []}
+          logs={logs.world || []}
           isWorld={true}
         />
       </div>
@@ -69,6 +65,25 @@ export function IngesterGrid() {
             );
           })}
         </div>
+      </div>
+
+      {/* Fusion Engine - Full Width */}
+      <div className="w-full">
+        <div className="text-xs uppercase tracking-wide text-purple-400 mb-2 font-semibold">
+          Data Fusion (Start After Sensors)
+        </div>
+        <IngesterCard
+          key="fusion"
+          name="fusion"
+          status={status.fusion || {
+            name: "fusion",
+            description: "Multi-sensor fusion engine - correlates all sensor data",
+            running: false,
+            redis_stream: "fusion:tracks",
+            status_key: "ingester:fusion:status",
+          }}
+          logs={logs.fusion || []}
+        />
       </div>
     </div>
   );

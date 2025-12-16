@@ -28,6 +28,7 @@ class QueryType(str, Enum):
     SEMANTIC = "semantic"      # Use vector retriever
     HYBRID = "hybrid"          # Use both
     TEMPORAL = "temporal"      # Time-aware queries
+    GENERAL = "general"        # General knowledge/conversation
 
 
 class QueryRoute(BaseModel):
@@ -82,6 +83,10 @@ Classify the following query into ONE of these types:
    - Time is the main filter: "last hour", "today", "yesterday", "recent"
    - Examples: "Ships detected in the last hour", "Recent dark ship events"
 
+5. GENERAL: Conversational, greetings, or general knowledge queries NOT requiring database access
+   - Greetings, meta-questions, or general questions about the system
+   - Examples: "Hello", "What can you do?", "Explain AIS", "Who built you?"
+
 For the query, also extract:
 - extracted_filters: Specific values mentioned (vessel_type, speed, port, mmsi, ship_name)
 - time_range: Time constraints if any (e.g., "last_hour", "today", "last_24h")
@@ -91,7 +96,7 @@ Query: "{query}"
 
 Respond with valid JSON only:
 {{
-    "query_type": "structured|semantic|hybrid|temporal",
+    "query_type": "structured|semantic|hybrid|temporal|general",
     "confidence": 0.0-1.0,
     "reasoning": "Brief explanation",
     "extracted_filters": {{"vessel_type": "...", "speed_gt": 15, "port": "Mumbai", ...}} or null,
@@ -122,8 +127,11 @@ Respond with valid JSON only:
 
             result = json.loads(response.text)
 
+            # Normalize query_type to lowercase (LLM sometimes returns uppercase)
+            query_type_str = result.get("query_type", "general").lower()
+
             return QueryRoute(
-                query_type=QueryType(result.get("query_type", "structured")),
+                query_type=QueryType(query_type_str),
                 confidence=float(result.get("confidence", 0.8)),
                 reasoning=result.get("reasoning", ""),
                 extracted_filters=result.get("extracted_filters"),
@@ -151,8 +159,11 @@ Respond with valid JSON only:
 
             result = json.loads(response.text)
 
+            # Normalize query_type to lowercase (LLM sometimes returns uppercase)
+            query_type_str = result.get("query_type", "general").lower()
+
             return QueryRoute(
-                query_type=QueryType(result.get("query_type", "structured")),
+                query_type=QueryType(query_type_str),
                 confidence=float(result.get("confidence", 0.8)),
                 reasoning=result.get("reasoning", ""),
                 extracted_filters=result.get("extracted_filters"),
@@ -191,9 +202,16 @@ Respond with valid JSON only:
             "in the past", "24 hours", "this week"
         ]
 
+        # General keywords
+        general_keywords = [
+            "hello", "hi", "hey", "help", "what can you do", "who are you",
+            "explain", "what is ais", "thank you", "thanks"
+        ]
+
         has_semantic = any(kw in query_lower for kw in semantic_keywords)
         has_structured = any(kw in query_lower for kw in structured_keywords)
         has_temporal = any(kw in query_lower for kw in temporal_keywords)
+        has_general = any(kw in query_lower for kw in general_keywords)
 
         # Extract basic filters
         filters = self._extract_filters_rule_based(query)
@@ -209,9 +227,12 @@ Respond with valid JSON only:
         elif has_temporal and not has_structured:
             query_type = QueryType.TEMPORAL
             reasoning = "Query focuses on time constraints"
-        else:
+        elif has_structured:
             query_type = QueryType.STRUCTURED
             reasoning = "Query has specific filters or asks for structured data"
+        else:
+            query_type = QueryType.GENERAL
+            reasoning = "Query appears conversational or general"
 
         return QueryRoute(
             query_type=query_type,

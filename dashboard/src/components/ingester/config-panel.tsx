@@ -222,5 +222,28 @@ export function ConfigPanel({ name, disabled }: ConfigPanelProps) {
     );
   }
 
+  // Fusion Engine
+  if (name === "fusion") {
+    const ranges = CONFIG_RANGES.fusion;
+    const defaults = DEFAULT_CONFIG.fusion;
+    return (
+      <div className="space-y-4 py-3">
+        <ConfigSlider
+          label="Processing Rate"
+          value={ingesterConfig.rate ?? defaults.rate}
+          {...ranges.rate}
+          disabled={disabled}
+          onChange={(v) => setConfig(name, "rate", v)}
+          unit=" Hz"
+          decimals={1}
+        />
+        <p className="text-xs text-muted-foreground mt-2">
+          Higher rate = more responsive tracking but more CPU usage.
+          2 Hz recommended for real-time correlation.
+        </p>
+      </div>
+    );
+  }
+
   return null;
 }

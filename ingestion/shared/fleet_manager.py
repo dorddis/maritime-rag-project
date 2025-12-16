@@ -333,6 +333,82 @@ VESSEL_TYPES = [
 # Common destinations (use MAJOR_PORTS keys)
 DESTINATIONS = list(MAJOR_PORTS.keys())
 
+# =============================================================================
+# REALISTIC SHIP NAMES
+# =============================================================================
+
+# Prefixes by vessel type (shipping companies, common naming patterns)
+SHIP_NAME_PREFIXES = {
+    "cargo": ["ATLANTIC", "PACIFIC", "OCEAN", "GLOBAL", "STAR", "ORIENT", "NORDIC", "BALTIC", "FORTUNE", "UNITY"],
+    "tanker": ["EAGLE", "BRITISH", "NORDIC", "CROWN", "ENERGY", "CRUDE", "PETRO", "OCEAN", "GULF", "ROYAL"],
+    "container": ["MSC", "MAERSK", "COSCO", "EVER", "CMA CGM", "ONE", "HAPAG", "YANG MING", "MOL", "NYK"],
+    "fishing": ["SEA", "OCEAN", "DEEP", "BLUE", "STAR", "LUCKY", "GOLDEN", "SILVER", "PEARL", "CORAL"],
+    "passenger": ["ROYAL", "CARNIVAL", "PRINCESS", "CELEBRITY", "COSTA", "QUEEN", "DIAMOND", "CRYSTAL", "GRAND", "STAR"],
+    "naval": ["INS", "VIKRANT", "SHIVALIK", "TALWAR", "KOLKATA", "DELHI", "MYSORE", "CHENNAI", "KOCHI", "VIZAG"],
+    "tug": ["OCEAN", "PORT", "HARBOUR", "MIGHTY", "STRONG", "POWER", "FORCE", "TITAN", "ATLAS", "NEPTUNE"],
+    "unknown": ["SHADOW", "PHANTOM", "GHOST", "DARK", "NIGHT", "SILENT", "VOID", "UNKNOWN", "MYSTERY", "STEALTH"],
+}
+
+# Suffixes (geographic, descriptive)
+SHIP_NAME_SUFFIXES = {
+    "cargo": ["VOYAGER", "CARRIER", "EXPRESS", "TRADER", "PIONEER", "VENTURE", "FORTUNE", "SPIRIT", "PRIDE", "GLORY",
+              "MUMBAI", "SINGAPORE", "DUBAI", "CHENNAI", "COLOMBO", "MALDIVES", "ARABIAN", "INDIAN", "BENGAL", "ANDAMAN"],
+    "tanker": ["SPIRIT", "FORTUNE", "STAR", "GLORY", "PRIDE", "TEXAS", "ALASKA", "LIBERTY", "GRACE", "CROWN",
+               "GULF", "ARABIAN", "PERSIAN", "INDIAN", "PACIFIC", "ATLANTIC", "HORIZON", "ENDEAVOUR", "RESOLVE", "VALIANT"],
+    "container": ["GLORY", "FORTUNE", "STAR", "HARMONY", "TRIUMPH", "UNITY", "WISDOM", "TRUST", "FAITH", "HOPE",
+                  "GULSUN", "ELBA", "EMMA", "OSCAR", "MADISON", "JAKARTA", "BANGKOK", "TOKYO", "SEOUL", "SHANGHAI"],
+    "fishing": ["HUNTER", "SPIRIT", "DREAM", "QUEST", "VENTURE", "DAWN", "HORIZON", "WAVE", "TIDE", "BREEZE",
+                "DRAGON", "PHOENIX", "TIGER", "FALCON", "EAGLE", "MARLIN", "TUNA", "PEARL", "CORAL", "REEF"],
+    "passenger": ["PRINCESS", "QUEEN", "EMPRESS", "MONARCH", "SOVEREIGN", "MAJESTY", "SPLENDOUR", "SERENITY", "DREAM", "FANTASY",
+                  "CARIBBEAN", "MEDITERRANEAN", "PACIFIC", "ATLANTIC", "INDIAN", "ARABIAN", "CORAL", "AZURE", "JADE", "RUBY"],
+    "naval": ["BRAHMAPUTRA", "GODAVARI", "GANGA", "KAVERI", "NARMADA", "SAHYADRI", "VINDHYAGIRI", "NILGIRI", "HIMGIRI", "UDAYGIRI",
+              "CHAKRA", "ARIHANT", "SINDHUGHOSH", "SHISHUMAR", "KALVARI", "KHANDERI", "KARANJ", "VELA", "VAGIR", "VAGSHEER"],
+    "tug": ["FORCE", "POWER", "STRENGTH", "MIGHT", "GRIP", "PULL", "WORKER", "HELPER", "ASSIST", "GUARDIAN",
+            "LION", "TIGER", "BEAR", "BULL", "BUFFALO", "ELEPHANT", "MAMMOTH", "GIANT", "COLOSSUS", "HERCULES"],
+    "unknown": ["RUNNER", "DRIFTER", "WANDERER", "NOMAD", "ROGUE", "SPECTRE", "WRAITH", "SHADE", "MIST", "FOG",
+                "ZERO", "NULL", "VOID", "BLANK", "CIPHER", "ENIGMA", "RIDDLE", "PUZZLE", "MAZE", "LABYRINTH"],
+}
+
+# Track used names to avoid duplicates
+_used_ship_names: set = set()
+
+
+def generate_ship_name(vessel_type: str, ship_id: int) -> str:
+    """
+    Generate a realistic ship name based on vessel type.
+
+    Examples:
+        - cargo: "ATLANTIC VOYAGER", "PACIFIC MUMBAI"
+        - tanker: "EAGLE SPIRIT", "NORDIC GULF"
+        - container: "MSC GULSUN", "MAERSK ELBA"
+        - fishing: "SEA HUNTER", "LUCKY DRAGON"
+    """
+    global _used_ship_names
+
+    prefixes = SHIP_NAME_PREFIXES.get(vessel_type, SHIP_NAME_PREFIXES["cargo"])
+    suffixes = SHIP_NAME_SUFFIXES.get(vessel_type, SHIP_NAME_SUFFIXES["cargo"])
+
+    # Try to generate unique name
+    for _ in range(50):  # Max attempts
+        prefix = random.choice(prefixes)
+        suffix = random.choice(suffixes)
+        name = f"{prefix} {suffix}"
+
+        if name not in _used_ship_names:
+            _used_ship_names.add(name)
+            return name
+
+    # Fallback: add number suffix for uniqueness
+    name = f"{random.choice(prefixes)} {random.choice(suffixes)} {ship_id}"
+    _used_ship_names.add(name)
+    return name
+
+
+def reset_ship_names():
+    """Reset the used names tracker (call when reinitializing fleet)."""
+    global _used_ship_names
+    _used_ship_names = set()
+
 
 class FleetManager:
     """
@@ -366,6 +442,9 @@ class FleetManager:
             pipeline.delete(self.FLEET_KEY)
             await pipeline.execute()
 
+        # Reset ship name tracker for fresh names
+        reset_ship_names()
+
         ships = []
         ship_id = 0
 
@@ -394,7 +473,7 @@ class FleetManager:
 
                 ship = Ship(
                     mmsi=f"{ship_id:09d}",
-                    name=f"{vtype.upper()}_{ship_id:04d}",
+                    name=generate_ship_name(vtype, ship_id),
                     vessel_type=vtype,
                     latitude=lat,
                     longitude=lon,

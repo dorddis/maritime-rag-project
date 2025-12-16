@@ -138,6 +138,9 @@ class HybridExecutor:
             elif route.query_type == QueryType.TEMPORAL:
                 result = await self._execute_temporal(query, route, result, max_results)
 
+            elif route.query_type == QueryType.GENERAL:
+                result = await self._execute_general(query, route, result)
+
             # Add real-time data if requested
             if include_realtime:
                 realtime = await self._fetch_realtime_tracks(route.extracted_filters)
@@ -276,6 +279,34 @@ class HybridExecutor:
         result["explanation"] = f"Temporal query with filter: {time_filter}\n{sql_response.get('explanation', '')}"
 
         return result
+
+    async def _execute_general(
+        self,
+        query: str,
+        route: QueryRoute,
+        result: Dict,
+    ) -> Dict:
+        """Execute general conversational query."""
+        try:
+            # Simple LLM call for conversational response
+            prompt = f"""You are an intelligent maritime assistant for a ship tracking system.
+The system tracks ships using AIS, Satellite, and Radar data.
+It can detect anomalies like dark ships, speed violations, and zone entries.
+
+User Query: {query}
+
+Provide a helpful, concise, and professional response.
+If the user asks what you can do, explain that you can track ships, find anomalies, and answer questions about the maritime domain.
+"""
+            response = await self.router.model.generate_content_async(prompt)
+            result["explanation"] = response.text
+            result["structured_results"] = []  # No data for general chat
+            
+            return result
+        except Exception as e:
+            logger.error(f"General query failed: {e}")
+            result["explanation"] = "I'm sorry, I couldn't process that request."
+            return result
 
     async def _fetch_realtime_tracks(
         self,

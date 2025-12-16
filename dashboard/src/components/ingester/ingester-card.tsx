@@ -5,7 +5,7 @@
  */
 
 import { useState } from "react";
-import { Ship, Radio, Satellite, Plane, Globe2, ChevronDown, ChevronUp, Loader2, Info } from "lucide-react";
+import { Ship, Radio, Satellite, Plane, Globe2, Layers, ChevronDown, ChevronUp, Loader2, Info } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ const ICONS = {
   Satellite,
   Plane,
   Globe: Globe2,
+  Layers,
 };
 
 // Simple markdown bold parser - converts **text** to <strong>

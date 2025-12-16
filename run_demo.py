@@ -4,15 +4,16 @@ Maritime Multi-Format Ingestion Demo
 Entry point for demonstrating the multi-source data ingestion pipeline.
 
 Usage:
-    python run_demo.py              # Start dashboard only
-    python run_demo.py --all        # Start dashboard + all ingesters
+    python run_demo.py              # Start backend (8001) + frontend (3000)
+    python run_demo.py --backend-only # Start backend only
+    python run_demo.py --all        # Start backend + all ingesters
     python run_demo.py --test       # Run quick format test
 
 Demo flow:
 1. Start this script
-2. Open browser to http://localhost:8000
-3. Toggle ingesters ON/OFF from dashboard
-4. Observe data flowing through Redis streams
+2. Backend starts on http://localhost:8001
+3. Frontend starts on http://localhost:3000
+4. Browser opens to Frontend
 """
 
 import argparse
@@ -21,6 +22,8 @@ import subprocess
 import sys
 import time
 import webbrowser
+import os
+import signal
 from pathlib import Path
 
 # Add project root to path
@@ -99,54 +102,109 @@ def run_ingester_test():
     ], cwd=str(PROJECT_ROOT))
 
 
-def start_dashboard(open_browser: bool = True, start_all: bool = False):
-    """Start the admin dashboard server"""
+def start_services(start_frontend: bool = True, start_all_ingesters: bool = False, open_browser: bool = True):
+    """Start the system services"""
+    processes = []
+    
     print("\n" + "=" * 60)
-    print("MARITIME INGESTION DASHBOARD")
+    print("STARTING MARITIME DEMO SYSTEM")
     print("=" * 60)
-    print("\nStarting server at http://localhost:8000")
-    print("Press Ctrl+C to stop\n")
 
-    # Open browser after short delay
-    if open_browser:
+    # 1. Start Backend
+    print("\n[1] Starting Backend API (Port 8001)...")
+    backend_cmd = [
+        sys.executable, "-X", "utf8",
+        "-m", "uvicorn",
+        "admin.server:app",
+        "--host", "0.0.0.0",
+        "--port", "8001",
+        "--reload"
+    ]
+    backend_proc = subprocess.Popen(
+        backend_cmd,
+        cwd=str(PROJECT_ROOT),
+        env=os.environ.copy()
+    )
+    processes.append(("Backend", backend_proc))
+
+    # 2. Start Frontend (if requested)
+    if start_frontend:
+        print("[2] Starting Next.js Dashboard (Port 3000)...")
+        dashboard_dir = PROJECT_ROOT / "dashboard"
+        
+        # Check if node_modules exists
+        if not (dashboard_dir / "node_modules").exists():
+            print("    Installing dependencies (this may take a minute)...")
+            subprocess.run(["npm", "install"], cwd=str(dashboard_dir), shell=True)
+
+        frontend_cmd = ["npm", "run", "dev"]
+        frontend_proc = subprocess.Popen(
+            frontend_cmd,
+            cwd=str(dashboard_dir),
+            shell=True,
+            env=os.environ.copy()
+        )
+        processes.append(("Frontend", frontend_proc))
+
+    # 3. Start Ingesters (if requested)
+    if start_all_ingesters:
+        print("[3] Starting All Ingesters...")
+        # We'll trigger them via the API or separate process?
+        # For simplicity, let's run the run_system.py script
+        ingester_cmd = [sys.executable, "run_system.py"]
+        ingester_proc = subprocess.Popen(
+            ingester_cmd,
+            cwd=str(PROJECT_ROOT),
+            env=os.environ.copy()
+        )
+        processes.append(("Ingesters", ingester_proc))
+
+    print("\nSystem is running!")
+    print("Backend:  http://localhost:8001")
+    if start_frontend:
+        print("Frontend: http://localhost:3000")
+    print("Press Ctrl+C to stop all services\n")
+
+    # Open browser
+    if open_browser and start_frontend:
         def open_delayed():
-            time.sleep(2)
-            webbrowser.open("http://localhost:8000")
+            time.sleep(5) # Wait a bit for Next.js to compile
+            webbrowser.open("http://localhost:3000")
+            # Also open the admin dashboard?
+            # webbrowser.open("http://localhost:8001") 
 
         import threading
         threading.Thread(target=open_delayed, daemon=True).start()
+    elif open_browser:
+        # Backend only
+        webbrowser.open("http://localhost:8001")
 
-    # Start dashboard
+    # Wait for interrupt
     try:
-        subprocess.run([
-            sys.executable, "-X", "utf8",
-            "-m", "uvicorn",
-            "admin.server:app",
-            "--host", "0.0.0.0",
-            "--port", "8000",
-            "--reload"
-        ], cwd=str(PROJECT_ROOT))
+        while True:
+            time.sleep(1)
+            # Check if processes are still alive
+            for name, proc in processes:
+                if proc.poll() is not None:
+                    print(f"\n{name} stopped unexpectedly with code {proc.returncode}")
+                    raise KeyboardInterrupt
     except KeyboardInterrupt:
         print("\nShutting down...")
+        for name, proc in processes:
+            print(f"Stopping {name}...")
+            if sys.platform == 'win32':
+                # Windows requires forceful termination for shell=True
+                subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], 
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            else:
+                proc.terminate()
+        print("Done.")
 
 
 def main():
     parser = argparse.ArgumentParser(
         description="Maritime Multi-Format Ingestion Demo",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Examples:
-    python run_demo.py              Start dashboard only
-    python run_demo.py --test       Run format parser test
-    python run_demo.py --all        Start dashboard with all ingesters
-    python run_demo.py --no-browser Start without opening browser
-
-Data Formats Supported:
-    AIS       - NMEA 0183 (6-bit ASCII encoding, checksums)
-    Radar     - Binary protocol (struct.pack/unpack)
-    Satellite - GeoJSON FeatureCollection with batch metadata
-    Drone     - CV JSON (post-YOLO detection output)
-        """
+        formatter_class=argparse.RawDescriptionHelpFormatter
     )
 
     parser.add_argument(
@@ -157,7 +215,12 @@ Data Formats Supported:
     parser.add_argument(
         "--all",
         action="store_true",
-        help="Start all ingesters automatically"
+        help="Start backend, frontend, AND all ingesters"
+    )
+    parser.add_argument(
+        "--backend-only",
+        action="store_true",
+        help="Start only the backend (no frontend)"
     )
     parser.add_argument(
         "--no-browser",
@@ -167,26 +230,14 @@ Data Formats Supported:
 
     args = parser.parse_args()
 
-    print(r"""
-    __  __            _ _   _
-   |  \/  | __ _ _ __(_) |_(_)_ __ ___   ___
-   | |\/| |/ _` | '__| | __| | '_ ` _ \ / _ \
-   | |  | | (_| | |  | | |_| | | | | | |  __/
-   |_|  |_|\__,_|_|  |_|\__|_|_| |_| |_|\___|
-
-   Multi-Format Data Ingestion Pipeline Demo
-   =========================================
-
-   Formats: NMEA 0183 | Binary Radar | GeoJSON | CV JSON
-    """)
-
     if args.test:
         run_format_test()
         run_ingester_test()
     else:
-        start_dashboard(
-            open_browser=not args.no_browser,
-            start_all=args.all
+        start_services(
+            start_frontend=not args.backend_only,
+            start_all_ingesters=args.all,
+            open_browser=not args.no_browser
         )
 
 

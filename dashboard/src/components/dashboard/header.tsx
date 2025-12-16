@@ -4,8 +4,10 @@
  * Dashboard header with title and connection status
  */
 
-import { Anchor, Wifi, WifiOff } from "lucide-react";
+import Link from "next/link";
+import { Anchor, Wifi, WifiOff, MessageSquare } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useLogStore } from "@/stores/log-store";
 
 export function DashboardHeader() {
@@ -28,6 +30,13 @@ export function DashboardHeader() {
       </div>
 
       <div className="flex items-center gap-3">
+        <Link href="/chat">
+          <Button variant="outline" size="sm" className="gap-2">
+            <MessageSquare className="h-4 w-4" />
+            RAG Chat
+          </Button>
+        </Link>
+
         <Badge
           variant={connected ? "default" : "destructive"}
           className="flex items-center gap-1.5"

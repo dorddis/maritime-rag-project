@@ -278,13 +278,71 @@ class SQLAgent:
 
     def _extract_results(self, output: str) -> List[Dict]:
         """Extract result rows from agent output."""
-        # The agent typically returns results as text
-        # This is a simplified extraction
-        # In practice, you might parse structured output
-        return []
+        import ast
+        results = []
+
+        # Look for list of tuples pattern: [(...), (...)] or [(...))]
+        # This pattern appears in SQL query results
+        list_pattern = r'\[(\([^)]+\)(?:\s*,\s*\([^)]+\))*)\]'
+        matches = re.findall(list_pattern, output)
+
+        for match in matches:
+            try:
+                # Reconstruct the full list string
+                list_str = f"[{match}]"
+                rows = ast.literal_eval(list_str)
+
+                # Convert tuples to dicts with generic keys
+                for row in rows:
+                    if isinstance(row, tuple):
+                        result = {}
+                        for i, val in enumerate(row):
+                            result[f"col_{i}"] = val
+                        results.append(result)
+                    elif isinstance(row, dict):
+                        results.append(row)
+            except (ValueError, SyntaxError) as e:
+                logger.debug(f"Could not parse tuple results: {e}")
+
+        # If no results yet, try to find any list literal in the output
+        if not results:
+            # Look for patterns like [('val1', 'val2', ...), ...]
+            for match in re.finditer(r'\[\([^\]]+\)\]', output):
+                try:
+                    rows = ast.literal_eval(match.group())
+                    for row in rows:
+                        if isinstance(row, tuple):
+                            result = {}
+                            for i, val in enumerate(row):
+                                result[f"col_{i}"] = val
+                            results.append(result)
+                except (ValueError, SyntaxError):
+                    pass
+
+        # Also look for table-like output with column headers
+        # Format: "column1 | column2 | column3\n val1 | val2 | val3"
+        if not results:
+            lines = output.split('\n')
+            header_line = None
+            for line in lines:
+                if '|' in line and not line.strip().startswith('-'):
+                    if header_line is None:
+                        header_line = [col.strip() for col in line.split('|') if col.strip()]
+                    else:
+                        values = [col.strip() for col in line.split('|') if col.strip()]
+                        if len(values) == len(header_line):
+                            row = dict(zip(header_line, values))
+                            results.append(row)
+
+        return results
 
     def _count_results(self, output: str) -> int:
         """Count result rows from agent output."""
+        # First try to count from extracted results
+        extracted = self._extract_results(output)
+        if extracted:
+            return len(extracted)
+
         # Look for patterns like "X rows" or count from results
         count_pattern = r"(\d+)\s+rows?"
         matches = re.findall(count_pattern, output, re.IGNORECASE)
