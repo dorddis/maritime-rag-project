@@ -1,0 +1,186 @@
+[
+  {
+    "content": "Ship Report: MV OCEAN STAR\nMMSI: 123456789\nType: Cargo\nRoute: Mumbai to Singapore\nFirst Position: 18.9577N, 72.8278E at 2025-12-12T17:52:24.179102\nLast Position: 1.3353N, 103.8371E at 2025-12-13T18:28:24.179102\nAverage Speed: 15.4 knots\nTotal Positions Recorded: 50\nCurrent Status: Underway",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "MV OCEAN STAR",
+      "mmsi": "123456789"
+    }
+  },
+  {
+    "content": "Ship Report: ARABIAN PEARL\nMMSI: 234567890\nType: Tanker\nRoute: Dubai to Chennai\nFirst Position: 25.2249N, 55.2895E at 2025-12-12T23:57:24.179102\nLast Position: 13.1478N, 80.1131E at 2025-12-14T00:26:24.179102\nAverage Speed: 14.4 knots\nTotal Positions Recorded: 50\nCurrent Status: Underway",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "ARABIAN PEARL",
+      "mmsi": "234567890"
+    }
+  },
+  {
+    "content": "Ship Report: INDIAN PRIDE\nMMSI: 345678901\nType: Container\nRoute: Kandla to Colombo\nFirst Position: 23.1560N, 70.1850E at 2025-12-13T05:53:24.179102\nLast Position: 7.0679N, 79.9452E at 2025-12-14T06:22:24.179102\nAverage Speed: 15.3 knots\nTotal Positions Recorded: 50\nCurrent Status: Underway",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "INDIAN PRIDE",
+      "mmsi": "345678901"
+    }
+  },
+  {
+    "content": "Ship Report: SEA VOYAGER\nMMSI: 456789012\nType: Cargo\nRoute: Visakhapatnam to Dubai\nFirst Position: 17.8422N, 83.2414E at 2025-12-13T11:57:24.179102\nLast Position: 25.2236N, 55.4313E at 2025-12-14T12:24:24.179102\nAverage Speed: 12.6 knots\nTotal Positions Recorded: 50\nCurrent Status: Underway",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "SEA VOYAGER",
+      "mmsi": "456789012"
+    }
+  },
+  {
+    "content": "Ship Report: COASTAL QUEEN\nMMSI: 567890123\nType: Passenger\nRoute: Kochi to Mumbai\nFirst Position: 9.8911N, 76.3467E at 2025-12-13T17:59:24.179102\nLast Position: 18.8906N, 72.7938E at 2025-12-14T18:21:24.179102\nAverage Speed: 17.9 knots\nTotal Positions Recorded: 50\nCurrent Status: Underway",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "COASTAL QUEEN",
+      "mmsi": "567890123"
+    }
+  },
+  {
+    "content": "Ship Report: BLUE HORIZON\nMMSI: 678901234\nType: Tanker\nRoute: Singapore to Kandla\nFirst Position: 1.4446N, 103.8376E at 2025-12-13T23:57:24.179102\nLast Position: 22.9059N, 70.1994E at 2025-12-15T00:25:24.179102\nAverage Speed: 15.6 knots\nTotal Positions Recorded: 50\nCurrent Status: Underway",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "BLUE HORIZON",
+      "mmsi": "678901234"
+    }
+  },
+  {
+    "content": "Ship Report: SWIFT CARRIER\nMMSI: 789012345\nType: Container\nRoute: Chennai to Singapore\nFirst Position: 13.0904N, 80.4916E at 2025-12-14T05:52:24.179102\nLast Position: 1.3126N, 103.8514E at 2025-12-15T06:26:24.179102\nAverage Speed: 16.9 knots\nTotal Positions Recorded: 50\nCurrent Status: Underway",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "SWIFT CARRIER",
+      "mmsi": "789012345"
+    }
+  },
+  {
+    "content": "Ship Report: HARBOR MASTER\nMMSI: 890123456\nType: Cargo\nRoute: Colombo to Visakhapatnam\nFirst Position: 6.9933N, 79.7020E at 2025-12-14T11:58:24.179102\nLast Position: 17.6946N, 83.2386E at 2025-12-15T12:28:24.179102\nAverage Speed: 12.7 knots\nTotal Positions Recorded: 50\nCurrent Status: Underway",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "HARBOR MASTER",
+      "mmsi": "890123456"
+    }
+  },
+  {
+    "content": "Ship Report: SHADOW VESSEL\nMMSI: 999111222\nType: Unknown\nRoute: Unknown to Unknown\nFirst Position: 14.9997N, 71.9966E at 2025-12-13T17:55:24.183695\nLast Position: 16.9118N, 73.6985E at 2025-12-14T19:55:24.183695\nAverage Speed: 10.4 knots\nTotal Positions Recorded: 15\nCurrent Status: Underway\n\nANOMALY DETECTED: AIS_gap_suspicious_relocation",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "SHADOW VESSEL",
+      "mmsi": "999111222"
+    }
+  },
+  {
+    "content": "Ship Report: PHANTOM RUNNER\nMMSI: 999333444\nType: Cargo\nRoute: Kochi to Singapore\nFirst Position: 12.0000N, 75.0000E at 2025-12-14T17:55:24.183791\nLast Position: 13.9000N, 75.9500E at 2025-12-15T12:55:24.183791\nAverage Speed: 19.0 knots\nTotal Positions Recorded: 20\nCurrent Status: Underway\n\nANOMALY DETECTED: impossible_speed",
+    "metadata": {
+      "type": "ship_report",
+      "ship_name": "PHANTOM RUNNER",
+      "mmsi": "999333444"
+    }
+  },
+  {
+    "content": "Port Activity Report: Mumbai\nLocation: 18.9388N, 72.8354E\nShips in vicinity: 3\nShip names: MV OCEAN STAR, INDIAN PRIDE, COASTAL QUEEN\nTotal position records: 15",
+    "metadata": {
+      "type": "port_report",
+      "port_name": "Mumbai"
+    }
+  },
+  {
+    "content": "Port Activity Report: Chennai\nLocation: 13.0827N, 80.2707E\nShips in vicinity: 2\nShip names: ARABIAN PEARL, SWIFT CARRIER\nTotal position records: 4",
+    "metadata": {
+      "type": "port_report",
+      "port_name": "Chennai"
+    }
+  },
+  {
+    "content": "Port Activity Report: Kochi\nLocation: 9.9312N, 76.2673E\nShips in vicinity: 1\nShip names: COASTAL QUEEN\nTotal position records: 7",
+    "metadata": {
+      "type": "port_report",
+      "port_name": "Kochi"
+    }
+  },
+  {
+    "content": "Port Activity Report: Visakhapatnam\nLocation: 17.6868N, 83.2185E\nShips in vicinity: 2\nShip names: SEA VOYAGER, HARBOR MASTER\nTotal position records: 7",
+    "metadata": {
+      "type": "port_report",
+      "port_name": "Visakhapatnam"
+    }
+  },
+  {
+    "content": "Port Activity Report: Kandla\nLocation: 23.0333N, 70.2167E\nShips in vicinity: 2\nShip names: INDIAN PRIDE, BLUE HORIZON\nTotal position records: 5",
+    "metadata": {
+      "type": "port_report",
+      "port_name": "Kandla"
+    }
+  },
+  {
+    "content": "Port Activity Report: Colombo\nLocation: 6.9271N, 79.8612E\nShips in vicinity: 2\nShip names: INDIAN PRIDE, HARBOR MASTER\nTotal position records: 9",
+    "metadata": {
+      "type": "port_report",
+      "port_name": "Colombo"
+    }
+  },
+  {
+    "content": "Port Activity Report: Dubai\nLocation: 25.2048N, 55.2708E\nShips in vicinity: 2\nShip names: ARABIAN PEARL, SEA VOYAGER\nTotal position records: 4",
+    "metadata": {
+      "type": "port_report",
+      "port_name": "Dubai"
+    }
+  },
+  {
+    "content": "Port Activity Report: Singapore\nLocation: 1.3521N, 103.8198E\nShips in vicinity: 3\nShip names: MV OCEAN STAR, BLUE HORIZON, SWIFT CARRIER\nTotal position records: 6",
+    "metadata": {
+      "type": "port_report",
+      "port_name": "Singapore"
+    }
+  },
+  {
+    "content": "ANOMALY ALERT\nShip: SHADOW VESSEL\nMMSI: 999111222\nType: AIS_gap_suspicious_relocation\nLocation: 16.5067N, 73.4921E\nTime: 2025-12-14T15:55:24.183695\nSpeed: 11.4 knots\nThis vessel has exhibited suspicious behavior requiring investigation.",
+    "metadata": {
+      "type": "anomaly_alert",
+      "ship_name": "SHADOW VESSEL",
+      "anomaly_type": "AIS_gap_suspicious_relocation"
+    }
+  },
+  {
+    "content": "ANOMALY ALERT\nShip: SHADOW VESSEL\nMMSI: 999111222\nType: AIS_gap_suspicious_relocation\nLocation: 16.5891N, 73.5621E\nTime: 2025-12-14T16:55:24.183695\nSpeed: 9.4 knots\nThis vessel has exhibited suspicious behavior requiring investigation.",
+    "metadata": {
+      "type": "anomaly_alert",
+      "ship_name": "SHADOW VESSEL",
+      "anomaly_type": "AIS_gap_suspicious_relocation"
+    }
+  },
+  {
+    "content": "ANOMALY ALERT\nShip: SHADOW VESSEL\nMMSI: 999111222\nType: AIS_gap_suspicious_relocation\nLocation: 16.7074N, 73.5972E\nTime: 2025-12-14T17:55:24.183695\nSpeed: 11.6 knots\nThis vessel has exhibited suspicious behavior requiring investigation.",
+    "metadata": {
+      "type": "anomaly_alert",
+      "ship_name": "SHADOW VESSEL",
+      "anomaly_type": "AIS_gap_suspicious_relocation"
+    }
+  },
+  {
+    "content": "ANOMALY ALERT\nShip: SHADOW VESSEL\nMMSI: 999111222\nType: AIS_gap_suspicious_relocation\nLocation: 16.7906N, 73.6318E\nTime: 2025-12-14T18:55:24.183695\nSpeed: 10.9 knots\nThis vessel has exhibited suspicious behavior requiring investigation.",
+    "metadata": {
+      "type": "anomaly_alert",
+      "ship_name": "SHADOW VESSEL",
+      "anomaly_type": "AIS_gap_suspicious_relocation"
+    }
+  },
+  {
+    "content": "ANOMALY ALERT\nShip: SHADOW VESSEL\nMMSI: 999111222\nType: AIS_gap_suspicious_relocation\nLocation: 16.9118N, 73.6985E\nTime: 2025-12-14T19:55:24.183695\nSpeed: 11.7 knots\nThis vessel has exhibited suspicious behavior requiring investigation.",
+    "metadata": {
+      "type": "anomaly_alert",
+      "ship_name": "SHADOW VESSEL",
+      "anomaly_type": "AIS_gap_suspicious_relocation"
+    }
+  },
+  {
+    "content": "ANOMALY ALERT\nShip: PHANTOM RUNNER\nMMSI: 999333444\nType: impossible_speed\nLocation: 13.0000N, 75.5000E\nTime: 2025-12-15T03:55:24.183791\nSpeed: 85.0 knots\nThis vessel has exhibited suspicious behavior requiring investigation.",
+    "metadata": {
+      "type": "anomaly_alert",
+      "ship_name": "PHANTOM RUNNER",
+      "anomaly_type": "impossible_speed"
+    }
+  }
+]

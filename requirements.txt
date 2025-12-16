@@ -1,0 +1,40 @@
+# Core
+python-dotenv
+pydantic>=2.0
+
+# Async & Networking
+asyncio
+websockets
+httpx
+aiofiles
+
+# Redis
+redis[hiredis]
+
+# Database
+asyncpg
+psycopg2-binary
+
+# Data Processing
+pandas
+numpy
+geopy
+
+# File Watching
+watchdog
+
+# RAG & AI
+langchain
+langchain-google-genai
+chromadb
+
+# Visualization (optional)
+folium
+
+# API (if building FastAPI backend)
+fastapi
+uvicorn
+
+# Testing
+pytest
+pytest-asyncio
