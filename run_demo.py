@@ -38,7 +38,7 @@ def run_format_test():
     print("=" * 60)
 
     # Import test
-    from test_formats import (
+    from tests.test_formats import (
         NMEAGenerator, NMEAParser,
         BinaryRadarGenerator, BinaryRadarParser,
         SatelliteGeoJSONGenerator, SatelliteGeoJSONParser
@@ -98,7 +98,7 @@ def run_ingester_test():
 
     subprocess.run([
         sys.executable, "-X", "utf8",
-        str(PROJECT_ROOT / "test_ingesters.py")
+        str(PROJECT_ROOT / "tests" / "test_ingesters.py")
     ], cwd=str(PROJECT_ROOT))
 
 
@@ -148,16 +148,9 @@ def start_services(start_frontend: bool = True, start_all_ingesters: bool = Fals
 
     # 3. Start Ingesters (if requested)
     if start_all_ingesters:
-        print("[3] Starting All Ingesters...")
-        # We'll trigger them via the API or separate process?
-        # For simplicity, let's run the run_system.py script
-        ingester_cmd = [sys.executable, "run_system.py"]
-        ingester_proc = subprocess.Popen(
-            ingester_cmd,
-            cwd=str(PROJECT_ROOT),
-            env=os.environ.copy()
-        )
-        processes.append(("Ingesters", ingester_proc))
+        print("[3] Note: Use the dashboard UI to start ingesters")
+        print("    Navigate to http://localhost:3000 and use the ingester controls")
+        print("    Or use the API: POST http://localhost:8001/api/ingesters/{name}/start")
 
     print("\nSystem is running!")
     print("Backend:  http://localhost:8001")
