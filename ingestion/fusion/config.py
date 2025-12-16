@@ -68,15 +68,15 @@ class CorrelationGates:
 
     # Track confirmation thresholds
     tentative_to_confirmed_updates: int = 3
-    coasting_timeout_s: float = 300.0  # 5 minutes
-    drop_timeout_s: float = 600.0      # 10 minutes
+    coasting_timeout_s: float = 60.0   # 1 minute (was 5 min)
+    drop_timeout_s: float = 120.0      # 2 minutes (was 10 min)
 
     # Track uncertainty bounds
     min_position_uncertainty_m: float = 100.0   # Never shrink below this
     max_position_uncertainty_m: float = 5000.0  # Cap uncertainty
 
     # New track penalty (higher = prefer correlating to existing tracks)
-    new_track_cost: float = 0.85      # Was 0.5 - now much harder to create new tracks
+    new_track_cost: float = 0.95      # Very high - strongly prefer existing tracks
 
 
 @dataclass
