@@ -150,6 +150,8 @@ async def get_stream_stats():
         "radar:contacts": 0,
         "satellite:detections": 0,
         "drone:detections": 0,
+        "fusion:tracks": 0,
+        "fusion:dark_ships": 0,
     }
 
     for stream in streams:
@@ -270,6 +272,159 @@ async def get_all_logs():
     return manager.get_all_logs()
 
 
+# ============ Fusion API Endpoints ============
+
+@app.get("/api/fusion/status")
+async def get_fusion_status():
+    """Get fusion ingester status from Redis"""
+    if redis_client is None:
+        return {"error": "Redis not connected"}
+
+    try:
+        status = await redis_client.hgetall("fusion:status")
+        if not status:
+            return {
+                "running": False,
+                "active_tracks": 0,
+                "dark_ships": 0,
+                "message": "Fusion ingester not running"
+            }
+        return status
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/fusion/tracks")
+async def get_fusion_tracks():
+    """
+    Get all active fused tracks.
+    Returns unified tracks with multi-sensor correlation.
+    """
+    if redis_client is None:
+        return {"error": "Redis not connected", "tracks": []}
+
+    try:
+        # Get all active track IDs
+        track_ids = await redis_client.smembers("fusion:active_tracks")
+        if not track_ids:
+            return {"tracks": [], "count": 0}
+
+        # Fetch all tracks in parallel
+        pipeline = redis_client.pipeline()
+        for track_id in track_ids:
+            pipeline.hgetall(f"fusion:track:{track_id}")
+
+        results = await pipeline.execute()
+
+        tracks = []
+        for data in results:
+            if data:
+                tracks.append({
+                    "track_id": data.get("track_id", ""),
+                    "latitude": float(data.get("latitude", 0)),
+                    "longitude": float(data.get("longitude", 0)),
+                    "speed_knots": float(data.get("speed_knots", 0)) if data.get("speed_knots") else None,
+                    "course": float(data.get("course", 0)) if data.get("course") else None,
+                    "mmsi": data.get("mmsi"),
+                    "ship_name": data.get("ship_name"),
+                    "vessel_type": data.get("vessel_type"),
+                    "status": data.get("status", "UNKNOWN"),
+                    "is_dark_ship": data.get("is_dark_ship", "False") == "True",
+                    "dark_ship_confidence": float(data.get("dark_ship_confidence", 0)),
+                    "contributing_sensors": data.get("contributing_sensors", "").split(",") if data.get("contributing_sensors") else [],
+                    "track_quality": int(data.get("track_quality", 0)),
+                    "position_uncertainty_m": float(data.get("position_uncertainty_m", 0)),
+                    "updated_at": data.get("updated_at", ""),
+                })
+
+        return {
+            "tracks": tracks,
+            "count": len(tracks),
+            "dark_count": len([t for t in tracks if t["is_dark_ship"]]),
+        }
+    except Exception as e:
+        logger.error(f"Error fetching fusion tracks: {e}")
+        return {"error": str(e), "tracks": []}
+
+
+@app.get("/api/fusion/dark-ships")
+async def get_dark_ships():
+    """
+    Get all flagged dark ships.
+    Returns ships with AIS turned off or never had AIS.
+    """
+    if redis_client is None:
+        return {"error": "Redis not connected", "dark_ships": []}
+
+    try:
+        # Get recent dark ship alerts from stream
+        alerts = await redis_client.xrevrange("fusion:dark_ships", count=100)
+
+        dark_ships = []
+        for msg_id, data in alerts:
+            dark_ships.append({
+                "alert_id": msg_id,
+                "track_id": data.get("track_id", ""),
+                "latitude": float(data.get("latitude", 0)),
+                "longitude": float(data.get("longitude", 0)),
+                "confidence": float(data.get("confidence", 0)),
+                "alert_reason": data.get("alert_reason", ""),
+                "detected_by": data.get("detected_by", "").split(",") if data.get("detected_by") else [],
+                "timestamp": data.get("timestamp", ""),
+            })
+
+        return {
+            "dark_ships": dark_ships,
+            "count": len(dark_ships),
+        }
+    except Exception as e:
+        logger.error(f"Error fetching dark ships: {e}")
+        return {"error": str(e), "dark_ships": []}
+
+
+@app.get("/api/fusion/track/{track_id}")
+async def get_fusion_track(track_id: str):
+    """Get detailed information about a specific fused track"""
+    if redis_client is None:
+        raise HTTPException(status_code=503, detail="Redis not connected")
+
+    try:
+        data = await redis_client.hgetall(f"fusion:track:{track_id}")
+        if not data:
+            raise HTTPException(status_code=404, detail=f"Track not found: {track_id}")
+
+        return {
+            "track_id": data.get("track_id", ""),
+            "latitude": float(data.get("latitude", 0)),
+            "longitude": float(data.get("longitude", 0)),
+            "speed_knots": float(data.get("speed_knots", 0)) if data.get("speed_knots") else None,
+            "course": float(data.get("course", 0)) if data.get("course") else None,
+            "velocity_north_ms": float(data.get("velocity_north_ms", 0)),
+            "velocity_east_ms": float(data.get("velocity_east_ms", 0)),
+            "mmsi": data.get("mmsi"),
+            "ship_name": data.get("ship_name"),
+            "vessel_type": data.get("vessel_type"),
+            "vessel_length_m": float(data.get("vessel_length_m", 0)) if data.get("vessel_length_m") else None,
+            "status": data.get("status", "UNKNOWN"),
+            "identity_source": data.get("identity_source", "UNKNOWN"),
+            "is_dark_ship": data.get("is_dark_ship", "False") == "True",
+            "dark_ship_confidence": float(data.get("dark_ship_confidence", 0)),
+            "alert_reason": data.get("alert_reason"),
+            "ais_gap_seconds": float(data.get("ais_gap_seconds", 0)) if data.get("ais_gap_seconds") else None,
+            "contributing_sensors": data.get("contributing_sensors", "").split(",") if data.get("contributing_sensors") else [],
+            "track_quality": int(data.get("track_quality", 0)),
+            "position_uncertainty_m": float(data.get("position_uncertainty_m", 0)),
+            "correlation_confidence": float(data.get("correlation_confidence", 0)),
+            "update_count": int(data.get("update_count", 0)),
+            "created_at": data.get("created_at", ""),
+            "updated_at": data.get("updated_at", ""),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 # ============ WebSocket Endpoint ============
 
 # Track connected WebSocket clients
@@ -301,8 +456,9 @@ async def websocket_dashboard(websocket: WebSocket):
             # Get stream stats if Redis is connected
             streams = {}
             fleet = {"total_ships": 0, "dark_ships": 0}
+            fusion = {"running": False, "active_tracks": 0, "dark_ships": 0}
             if redis_client:
-                for stream_name in ["ais:positions", "radar:contacts", "satellite:detections", "drone:detections"]:
+                for stream_name in ["ais:positions", "radar:contacts", "satellite:detections", "drone:detections", "fusion:tracks", "fusion:dark_ships"]:
                     try:
                         info = await redis_client.xinfo_stream(stream_name)
                         streams[stream_name] = info.get("length", 0)
@@ -319,6 +475,19 @@ async def websocket_dashboard(websocket: WebSocket):
                 except Exception:
                     pass
 
+                # Get fusion status
+                try:
+                    fusion_status = await redis_client.hgetall("fusion:status")
+                    if fusion_status:
+                        fusion = {
+                            "running": fusion_status.get("running", "False") == "True",
+                            "active_tracks": int(fusion_status.get("active_tracks", 0)),
+                            "dark_ships": int(fusion_status.get("dark_ships", 0)),
+                            "correlations_made": int(fusion_status.get("correlations_made", 0)),
+                        }
+                except Exception:
+                    pass
+
             # Send update to client
             await websocket.send_json({
                 "type": "update",
@@ -326,6 +495,7 @@ async def websocket_dashboard(websocket: WebSocket):
                 "logs": logs,
                 "streams": streams,
                 "fleet": fleet,
+                "fusion": fusion,
                 "redis_connected": redis_client is not None
             })
 

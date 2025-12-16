@@ -179,20 +179,6 @@ export function FleetStatsPanel({ totalShips, darkShips, className = "" }: Fleet
         </div>
       </div>
 
-      {/* Legend */}
-      <div className="pt-2 border-t border-slate-700">
-        <div className="text-xs text-slate-500 mb-2">Ship Colors</div>
-        <div className="flex flex-wrap gap-2 text-xs">
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-cyan-400" />
-            <span className="text-slate-400">AIS On</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-red-500" />
-            <span className="text-slate-400">Dark Ship</span>
-          </span>
-        </div>
-      </div>
     </div>
   );
 }

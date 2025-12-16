@@ -37,6 +37,85 @@ export interface FleetMetadata {
   error?: string;
 }
 
+// ============ Fusion Types ============
+
+// Unified track from fusion engine
+export interface FusedTrack {
+  track_id: string;
+  latitude: number;
+  longitude: number;
+  speed_knots: number | null;
+  course: number | null;
+  mmsi: string | null;
+  ship_name: string | null;
+  vessel_type: string | null;
+  status: "TENTATIVE" | "CONFIRMED" | "COASTING" | "DROPPED";
+  is_dark_ship: boolean;
+  dark_ship_confidence: number;
+  contributing_sensors: string[];
+  track_quality: number;
+  position_uncertainty_m: number;
+  updated_at: string;
+}
+
+// Detailed track info (from single track endpoint)
+export interface FusedTrackDetail extends FusedTrack {
+  velocity_north_ms: number;
+  velocity_east_ms: number;
+  vessel_length_m: number | null;
+  identity_source: "AIS" | "DRONE" | "UNKNOWN";
+  alert_reason: string | null;
+  ais_gap_seconds: number | null;
+  correlation_confidence: number;
+  update_count: number;
+  created_at: string;
+}
+
+// Fusion tracks response
+export interface FusionTracksData {
+  tracks: FusedTrack[];
+  count: number;
+  dark_count: number;
+  error?: string;
+}
+
+// Dark ship alert
+export interface DarkShipAlert {
+  alert_id: string;
+  track_id: string;
+  latitude: number;
+  longitude: number;
+  confidence: number;
+  alert_reason: string;
+  detected_by: string[];
+  timestamp: string;
+}
+
+// Dark ships response
+export interface DarkShipsData {
+  dark_ships: DarkShipAlert[];
+  count: number;
+  error?: string;
+}
+
+// Fusion status
+export interface FusionStatus {
+  running: boolean;
+  active_tracks: number;
+  dark_ships: number;
+  correlations_made?: number;
+  messages_processed?: number;
+  tracks_created?: number;
+  tracks_dropped?: number;
+  dark_ships_flagged?: number;
+  errors?: number;
+  uptime_seconds?: number;
+  rate_hz?: number;
+  last_update?: string;
+  error?: string;
+  message?: string;
+}
+
 // Ingester configuration from backend
 export interface IngesterConfig {
   name: string;
@@ -65,6 +144,8 @@ export interface DashboardUpdate {
   status: IngestersStatus;
   logs: Record<string, string[]>;
   streams: Record<string, number>;
+  fleet: { total_ships: number; dark_ships: number };
+  fusion: FusionStatus;
   redis_connected: boolean;
 }
 
@@ -176,6 +257,18 @@ export const INGESTER_METADATA: Record<
       { label: "Fleet", value: "**3 drones** patrolling **5 zones** (24-75km swath) - realistic ISR deployment" },
     ],
   },
+  fusion: {
+    displayName: "Data Fusion",
+    format: "Unified Tracks",
+    color: "#a855f7",
+    icon: "Layers",
+    techDetails: [
+      { label: "Algorithm", value: "**Gated Global Nearest Neighbor (GNN)** - Hungarian algorithm for optimal assignment" },
+      { label: "Position Fusion", value: "**Inverse variance weighting** - combines measurements by accuracy" },
+      { label: "Correlation", value: "**3-sigma gates** with kinematic consistency scoring - adaptive thresholds" },
+      { label: "Dark Ship Detection", value: "**Multi-sensor correlation** - flags vessels seen by radar/satellite but no AIS" },
+    ],
+  },
 };
 
 // Default config values for sliders
@@ -185,6 +278,7 @@ export const DEFAULT_CONFIG = {
   radar: { tracks: 50, rate: 1.0, rangePct: 100 },
   satellite: { rate: 0.1, cloudCover: 20, vesselsPerPass: 50 },
   drone: { rate: 0.5, detectionsPerFrame: 5 },
+  fusion: { rate: 2.0 },
 };
 
 // Config slider ranges
@@ -211,5 +305,8 @@ export const CONFIG_RANGES = {
   drone: {
     rate: { min: 0.1, max: 5, step: 0.1 },
     detectionsPerFrame: { min: 1, max: 10, step: 1 },
+  },
+  fusion: {
+    rate: { min: 0.5, max: 10, step: 0.5 },
   },
 };

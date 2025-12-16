@@ -9,6 +9,10 @@ import type {
   StartRequest,
   FleetData,
   FleetMetadata,
+  FusionTracksData,
+  DarkShipsData,
+  FusedTrackDetail,
+  FusionStatus,
 } from "./types";
 
 // API base URL - defaults to port 8001
@@ -134,5 +138,43 @@ export async function fetchFleetShips(): Promise<FleetData> {
 export async function fetchFleetMetadata(): Promise<FleetMetadata> {
   const res = await fetch(`${API_BASE}/api/fleet/metadata`);
   if (!res.ok) throw new Error(`Failed to fetch fleet metadata: ${res.statusText}`);
+  return res.json();
+}
+
+// ============ Fusion API ============
+
+/**
+ * Fetch fusion engine status
+ */
+export async function fetchFusionStatus(): Promise<FusionStatus> {
+  const res = await fetch(`${API_BASE}/api/fusion/status`);
+  if (!res.ok) throw new Error(`Failed to fetch fusion status: ${res.statusText}`);
+  return res.json();
+}
+
+/**
+ * Fetch all fused tracks
+ */
+export async function fetchFusionTracks(): Promise<FusionTracksData> {
+  const res = await fetch(`${API_BASE}/api/fusion/tracks`);
+  if (!res.ok) throw new Error(`Failed to fetch fusion tracks: ${res.statusText}`);
+  return res.json();
+}
+
+/**
+ * Fetch all dark ship alerts
+ */
+export async function fetchDarkShips(): Promise<DarkShipsData> {
+  const res = await fetch(`${API_BASE}/api/fusion/dark-ships`);
+  if (!res.ok) throw new Error(`Failed to fetch dark ships: ${res.statusText}`);
+  return res.json();
+}
+
+/**
+ * Fetch single track details
+ */
+export async function fetchFusionTrack(trackId: string): Promise<FusedTrackDetail> {
+  const res = await fetch(`${API_BASE}/api/fusion/track/${trackId}`);
+  if (!res.ok) throw new Error(`Failed to fetch track ${trackId}: ${res.statusText}`);
   return res.json();
 }

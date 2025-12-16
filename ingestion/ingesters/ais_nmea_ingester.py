@@ -341,7 +341,7 @@ async def main():
     if not args.dry_run:
         try:
             import redis.asyncio as redis
-            redis_client = redis.from_url(args.redis_url)
+            redis_client = redis.from_url(args.redis_url, decode_responses=True)
             await redis_client.ping()
             logger.info(f"Connected to Redis at {args.redis_url}")
         except ImportError:

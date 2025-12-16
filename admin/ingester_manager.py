@@ -95,6 +95,16 @@ INGESTERS = {
         redis_stream="drone:detections",
         status_key="ingester:drone:status"
     ),
+    "fusion": IngesterConfig(
+        name="fusion",
+        module="ingestion.fusion.fusion_ingester",
+        description="Data Fusion - Correlates all sensors, detects dark ships",
+        default_args={
+            "--rate": "2.0"
+        },
+        redis_stream="fusion:tracks",
+        status_key="fusion:status"
+    ),
 }
 
 
