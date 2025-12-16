@@ -53,12 +53,18 @@ class TrackManager:
         """Create a new track from an initial detection"""
         now = datetime.now(timezone.utc)
 
+        # Initial uncertainty is sensor error, but respect minimum bound
+        initial_uncertainty = max(
+            self.gates.min_position_uncertainty_m,
+            SENSOR_CONFIG[sensor_type].position_error_m
+        )
+
         track = UnifiedTrack(
             latitude=detection["latitude"],
             longitude=detection["longitude"],
             speed_knots=detection.get("speed_knots"),
             course=detection.get("course"),
-            position_uncertainty_m=SENSOR_CONFIG[sensor_type].position_error_m,
+            position_uncertainty_m=initial_uncertainty,
             status=TrackStatus.TENTATIVE,
         )
 
@@ -116,8 +122,12 @@ class TrackManager:
             detection["longitude"] * det_weight
         ) / total_weight
 
-        # Update uncertainty (combined estimate is better)
-        track.position_uncertainty_m = 1.0 / math.sqrt(total_weight)
+        # Update uncertainty (combined estimate is better, but respect bounds)
+        new_uncertainty = 1.0 / math.sqrt(total_weight)
+        track.position_uncertainty_m = max(
+            self.gates.min_position_uncertainty_m,
+            min(self.gates.max_position_uncertainty_m, new_uncertainty)
+        )
 
         # Update velocity from detection if available
         self._update_velocity(track, detection)
@@ -337,7 +347,7 @@ class TrackManager:
                     track.status = TrackStatus.COASTING
                     # Increase uncertainty while coasting
                     track.position_uncertainty_m = min(
-                        5000,
+                        self.gates.max_position_uncertainty_m,
                         track.position_uncertainty_m * 1.5
                     )
 

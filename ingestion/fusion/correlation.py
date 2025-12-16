@@ -101,6 +101,7 @@ class CorrelationEngine:
     ) -> Dict[str, List[Tuple[dict, str, float]]]:
         """
         Correlate multiple detections using GNN assignment.
+        Handles MMSI-based correlation first (deterministic), then spatial.
 
         Returns:
             Dict mapping track_id to list of (detection, sensor_type, confidence)
@@ -109,18 +110,44 @@ class CorrelationEngine:
         if not detections:
             return {}
 
+        results: Dict[str, List[Tuple[dict, str, float]]] = {"NEW": []}
+
+        # Phase 1: MMSI-based correlation (deterministic)
+        # Build MMSI -> track_id map
+        mmsi_to_track: Dict[str, str] = {}
+        for track_id, track in tracks.items():
+            if track.mmsi:
+                mmsi_to_track[track.mmsi] = track_id
+
+        remaining_detections = []
+        for det, sensor_type in detections:
+            det_mmsi = det.get("mmsi")
+            if det_mmsi and str(det_mmsi) in mmsi_to_track:
+                # Deterministic correlation by MMSI
+                track_id = mmsi_to_track[str(det_mmsi)]
+                if track_id not in results:
+                    results[track_id] = []
+                results[track_id].append((det, sensor_type, 1.0))  # Perfect confidence
+            else:
+                remaining_detections.append((det, sensor_type))
+
+        # Phase 2: Spatial correlation for remaining detections
+        if not remaining_detections:
+            return results
+
         if not tracks:
-            return {"NEW": [(d, s, 0.0) for d, s in detections]}
+            results["NEW"].extend([(d, s, 0.0) for d, s in remaining_detections])
+            return results
 
         track_list = list(tracks.items())
-        n_det = len(detections)
+        n_det = len(remaining_detections)
         n_tracks = len(track_list)
 
         # Build cost matrix
         # Rows = detections, Columns = tracks + dummy columns for new tracks
         cost_matrix = np.full((n_det, n_tracks + n_det), 1e6)
 
-        for i, (det, sensor_type) in enumerate(detections):
+        for i, (det, sensor_type) in enumerate(remaining_detections):
             for j, (track_id, track) in enumerate(track_list):
                 _, confidence = self.correlate_detection(
                     det, sensor_type, {track_id: track}, timestamp
@@ -128,17 +155,15 @@ class CorrelationEngine:
                 if confidence > 0:
                     cost_matrix[i, j] = 1.0 - confidence  # Convert to cost
 
-            # Cost for creating new track (moderate cost)
-            cost_matrix[i, n_tracks + i] = 0.5
+            # Cost for creating new track (configurable, higher = prefer existing)
+            cost_matrix[i, n_tracks + i] = self.gates.new_track_cost
 
         # Solve assignment using Hungarian algorithm
         row_ind, col_ind = linear_sum_assignment(cost_matrix)
 
         # Build results
-        results: Dict[str, List[Tuple[dict, str, float]]] = {"NEW": []}
-
         for i, j in zip(row_ind, col_ind):
-            det, sensor_type = detections[i]
+            det, sensor_type = remaining_detections[i]
             if j >= n_tracks:
                 # Assigned to new track
                 results["NEW"].append((det, sensor_type, 0.0))
@@ -182,6 +207,8 @@ class CorrelationEngine:
         combined = math.sqrt(track_uncertainty**2 + sensor_uncertainty**2)
         # N-sigma gate
         gate = combined * self.gates.sigma_multiplier
+        # Ensure gate is within bounds
+        gate = max(self.gates.min_distance_m, gate)
         return min(self.gates.max_distance_m, gate)
 
     def _haversine_m(

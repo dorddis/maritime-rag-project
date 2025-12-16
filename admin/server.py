@@ -24,6 +24,16 @@ import json
 
 from admin.ingester_manager import get_manager, INGESTERS
 
+# Import RAG router
+try:
+    from api.rag_endpoints import router as rag_router, cleanup_rag
+    RAG_AVAILABLE = True
+except ImportError as e:
+    RAG_AVAILABLE = False
+    rag_router = None
+    cleanup_rag = None
+    print(f"RAG module not available: {e}")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -59,10 +69,14 @@ async def lifespan(app: FastAPI):
     if redis_client:
         await redis_client.close()
 
+    # Cleanup RAG resources
+    if RAG_AVAILABLE and cleanup_rag:
+        await cleanup_rag()
+
 
 app = FastAPI(
-    title="Maritime Ingestion Admin",
-    description="Control panel for maritime data ingesters",
+    title="Maritime Ship Tracking API",
+    description="Control panel for maritime data ingesters and hybrid RAG queries",
     version="1.0.0",
     lifespan=lifespan
 )
@@ -75,6 +89,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include RAG router
+if RAG_AVAILABLE and rag_router:
+    app.include_router(rag_router)
+    logger.info("RAG endpoints mounted at /api/rag")
 
 
 class StartRequest(BaseModel):

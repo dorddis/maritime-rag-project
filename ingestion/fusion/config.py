@@ -55,20 +55,28 @@ class CorrelationGates:
     """Gating thresholds for sensor-to-track correlation"""
 
     # Spatial gate (based on combined sensor uncertainties)
-    max_distance_m: float = 5000      # Maximum initial gate distance
-    sigma_multiplier: float = 3.0     # 3-sigma gate
+    max_distance_m: float = 10000     # Maximum gate distance (10km)
+    min_distance_m: float = 500       # Minimum gate (prevents too-tight gates)
+    sigma_multiplier: float = 4.0     # 4-sigma gate (more permissive)
 
     # Temporal gate
-    max_time_delta_s: float = 60.0    # Max time between correlated detections
+    max_time_delta_s: float = 120.0   # Max time between correlated detections
 
     # Velocity gate (kinematic consistency)
-    max_speed_change_knots: float = 10.0
-    max_course_change_deg: float = 90.0
+    max_speed_change_knots: float = 15.0
+    max_course_change_deg: float = 120.0
 
     # Track confirmation thresholds
     tentative_to_confirmed_updates: int = 3
     coasting_timeout_s: float = 300.0  # 5 minutes
     drop_timeout_s: float = 600.0      # 10 minutes
+
+    # Track uncertainty bounds
+    min_position_uncertainty_m: float = 100.0   # Never shrink below this
+    max_position_uncertainty_m: float = 5000.0  # Cap uncertainty
+
+    # New track penalty (higher = prefer correlating to existing tracks)
+    new_track_cost: float = 0.85      # Was 0.5 - now much harder to create new tracks
 
 
 @dataclass
