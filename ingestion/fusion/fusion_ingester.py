@@ -310,6 +310,7 @@ class FusionIngester:
             "correlations_made": str(self.stats["correlations_made"]),
             "tracks_created": str(tm_stats["tracks_created"]),
             "tracks_dropped": str(tm_stats["tracks_dropped"]),
+            "tracks_merged": str(tm_stats.get("tracks_merged", 0)),
             "dark_ships_flagged": str(tm_stats["dark_ships_flagged"]),
             "errors": str(self.stats["errors"]),
             "uptime_seconds": str(int(uptime)),

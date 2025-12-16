@@ -35,44 +35,44 @@ LON_MIN, LON_MAX = 50.0, 105.0  # Extended west to include Arabian Sea
 SHIPPING_LANES = {
     # Main East-West Route: Strait of Malacca to Middle East/Europe
     "malacca_to_gulf": [
-        (1.3, 103.8),    # Singapore
+        (1.2, 103.6),    # Singapore approach (offshore)
         (4.0, 100.0),    # Strait of Malacca exit
         (6.0, 95.0),     # Andaman Sea
-        (8.0, 80.0),     # South of Sri Lanka
+        (6.5, 79.0),     # South of Sri Lanka (offshore)
         (10.0, 72.0),    # Arabian Sea
         (12.5, 65.0),    # Approaching Gulf of Aden
         (12.0, 55.0),    # Gulf of Aden
     ],
 
-    # India West Coast Route
+    # India West Coast Route (moved offshore by ~0.5 degrees)
     "india_west_coast": [
-        (8.5, 76.9),     # Cochin
-        (12.9, 74.8),    # Mangalore
-        (15.4, 73.8),    # Goa
-        (18.9, 72.8),    # Mumbai
-        (22.5, 70.0),    # Kandla/Gulf of Kutch
+        (8.5, 75.5),     # Cochin approach (offshore)
+        (12.9, 73.5),    # Mangalore approach (offshore)
+        (15.4, 72.5),    # Goa approach (offshore)
+        (18.9, 71.5),    # Mumbai approach (offshore)
+        (22.0, 68.5),    # Kandla approach (offshore)
     ],
 
-    # India East Coast Route
+    # India East Coast Route (moved offshore)
     "india_east_coast": [
-        (8.0, 77.5),     # Tuticorin
-        (13.1, 80.3),    # Chennai
-        (17.7, 83.3),    # Visakhapatnam
-        (20.0, 87.0),    # Approaching Kolkata
+        (8.0, 78.5),     # Tuticorin approach (offshore)
+        (13.1, 81.5),    # Chennai approach (offshore)
+        (17.7, 85.0),    # Visakhapatnam approach (offshore)
+        (20.0, 88.0),    # Bay of Bengal
     ],
 
     # Bay of Bengal Crossing
     "bay_of_bengal": [
-        (1.3, 103.8),    # Singapore
+        (1.2, 103.6),    # Singapore approach
         (6.0, 95.0),     # Andaman Sea
         (10.0, 88.0),    # Central Bay of Bengal
-        (13.1, 80.3),    # Chennai
+        (13.1, 81.5),    # Chennai approach (offshore)
     ],
 
     # Sri Lanka Hub Routes
     "colombo_hub": [
-        (6.9, 79.8),     # Colombo
-        (8.0, 77.0),     # South tip of India
+        (6.5, 79.0),     # Colombo approach (offshore)
+        (7.5, 77.5),     # South of India
         (5.5, 73.0),     # Maldives area
         (10.0, 72.0),    # Arabian Sea
     ],
@@ -82,16 +82,16 @@ SHIPPING_LANES = {
         (12.5, 65.0),    # Gulf of Aden approach
         (15.0, 60.0),    # Arabian Sea
         (22.0, 60.0),    # Approaching Hormuz
-        (26.0, 56.5),    # Strait of Hormuz
+        (25.5, 57.0),    # Strait of Hormuz approach
     ],
 
     # Southeast Asia to India
     "se_asia_india": [
-        (1.3, 103.8),    # Singapore
-        (7.0, 98.0),     # Phuket area
+        (1.2, 103.6),    # Singapore approach
+        (7.0, 97.0),     # Phuket area (offshore)
         (10.0, 92.0),    # Andaman Islands
-        (13.1, 80.3),    # Chennai
-        (18.9, 72.8),    # Mumbai
+        (13.1, 81.5),    # Chennai approach (offshore)
+        (18.9, 71.5),    # Mumbai approach (offshore)
     ],
 }
 
@@ -129,6 +129,8 @@ def spawn_point_on_lane() -> Tuple[float, float, float, str]:
     """
     Generate a spawn point along a shipping lane.
     Returns (lat, lon, course, lane_name)
+
+    Validates that the point is in ocean before returning.
     """
     lane_name = random.choice(list(SHIPPING_LANES.keys()))
     lane = SHIPPING_LANES[lane_name]
@@ -140,12 +142,20 @@ def spawn_point_on_lane() -> Tuple[float, float, float, str]:
 
     # Random position along the segment
     t = random.random()
-    lat = start[0] + t * (end[0] - start[0])
-    lon = start[1] + t * (end[1] - start[1])
+    base_lat = start[0] + t * (end[0] - start[0])
+    base_lon = start[1] + t * (end[1] - start[1])
 
-    # Add small random offset (ships don't travel exactly on the line)
-    lat += random.uniform(-0.3, 0.3)
-    lon += random.uniform(-0.3, 0.3)
+    # Try adding offset, but validate it stays in ocean
+    # Start with small offset and increase if needed for variety
+    for offset_scale in [0.1, 0.15, 0.2]:
+        lat = base_lat + random.uniform(-offset_scale, offset_scale)
+        lon = base_lon + random.uniform(-offset_scale, offset_scale)
+
+        if HAS_LAND_MASK and is_in_ocean(lat, lon):
+            break
+    else:
+        # If offset keeps hitting land, use the base lane point
+        lat, lon = base_lat, base_lon
 
     # Calculate course toward next waypoint
     course = calculate_bearing(lat, lon, end[0], end[1])
@@ -462,11 +472,21 @@ class FleetManager:
                 lat, lon, course, lane_name = spawn_point_on_lane()
 
                 # Validate it's in ocean, retry if needed
-                max_retries = 10
+                max_retries = 20
+                found_ocean = False
                 for _ in range(max_retries):
                     if is_in_ocean(lat, lon):
+                        found_ocean = True
                         break
                     lat, lon, course, lane_name = spawn_point_on_lane()
+
+                # If still on land after retries, use a safe deep ocean fallback
+                if not found_ocean:
+                    # Deep ocean point in Bay of Bengal (guaranteed water)
+                    lat = random.uniform(8.0, 12.0)
+                    lon = random.uniform(85.0, 92.0)
+                    course = random.uniform(0, 360)
+                    lane_name = "bay_of_bengal"
 
                 # Pick destination based on lane
                 destination = random.choice(DESTINATIONS)

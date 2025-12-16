@@ -88,6 +88,10 @@ class RAGSettings(BaseSettings):
     )
 
     # Query Router Settings
+    router_model: str = Field(
+        default="gemini-2.5-pro",
+        description="Gemini model for query routing (pro for better accuracy)"
+    )
     router_confidence_threshold: float = Field(
         default=0.7,
         description="Minimum confidence for query routing"

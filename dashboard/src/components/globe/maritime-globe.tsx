@@ -345,10 +345,6 @@ export function MaritimeGlobe({ className = "", onShipSelect }: MaritimeGlobePro
             const sat = d as SatellitePath;
             return `<div style="background: rgba(0,0,0,0.8); padding: 6px 10px; border-radius: 4px; border: 1px solid #feca57; font-family: monospace; font-size: 12px; color: #feca57;">${sat.name}</div>`;
           }}
-          // Globe styling
-          atmosphereColor="#00d9ff"
-          atmosphereAltitude={0.2}
-          // Performance
           animateIn={true}
         />
       )}

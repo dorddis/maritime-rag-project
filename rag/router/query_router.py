@@ -53,56 +53,157 @@ class QueryRouter:
         model_name: str = None,
         api_key: str = None,
     ):
-        self.model_name = model_name or settings.gemini_model
+        # Use router-specific model (gemini-2.5-pro) for better classification accuracy
+        self.model_name = model_name or settings.router_model
         self.api_key = api_key or get_google_api_key()
 
         genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel(self.model_name)
 
     def _build_routing_prompt(self, query: str) -> str:
-        """Build the classification prompt."""
+        """Build the classification prompt with full schema context."""
         return f"""You are a query classifier for a maritime ship tracking system.
 
-Classify the following query into ONE of these types:
+## SYSTEM CONTEXT
 
-1. STRUCTURED: Queries requiring exact filters, aggregations, or database lookups
-   - Has specific values: vessel type, speed numbers, ship names, port names
-   - Asks for counts, lists, or specific data points
-   - Examples: "Tankers near Mumbai", "Ships faster than 15 knots", "Count cargo ships"
+You have access to a ship tracking database with the following data:
 
-2. SEMANTIC: Queries requiring semantic understanding or pattern matching
-   - Uses vague/descriptive terms: suspicious, unusual, anomalous, similar
-   - Asks about behavior or patterns without specific values
-   - Examples: "Ships with suspicious behavior", "Unusual vessel patterns", "Anomalies like X"
+### Available Fields for Filtering:
+| Field | Type | Valid Values | Description |
+|-------|------|--------------|-------------|
+| vessel_type | string | TANKER, CARGO, CONTAINER, PASSENGER, FISHING, BULK_CARRIER | Type of vessel |
+| is_dark_ship | boolean | true, false | Ship with AIS transponder disabled (not broadcasting location) |
+| speed_knots | number | 0-50 | Current speed in nautical knots |
+| port | string | Mumbai, Chennai, Kochi, Singapore, Dubai, Colombo, Kandla, Visakhapatnam | Nearest port |
+| ship_name | string | any | Vessel name (e.g., "ARABIAN STAR") |
+| mmsi | string | 9-digit number | Maritime Mobile Service Identity |
+| limit | number | 1-100 | Maximum results to return |
 
-3. HYBRID: Queries with BOTH structured filters AND semantic components
-   - Has specific filters (type, location) AND vague/descriptive terms
-   - Examples: "Tankers with unusual behavior near Mumbai", "Dark ships with suspicious patterns"
+### Domain Terminology Mapping:
+- "dark ship" / "dark vessel" / "AIS off" / "stealth" → is_dark_ship: true
+- "tanker" / "oil tanker" → vessel_type: "TANKER"
+- "cargo" / "cargo ship" / "freighter" → vessel_type: "CARGO"
+- "container" / "container ship" → vessel_type: "CONTAINER"
+- "fishing" / "fishing boat" / "trawler" → vessel_type: "FISHING"
+- "bulk" / "bulk carrier" → vessel_type: "BULK_CARRIER"
+- "faster than X knots" / "speed > X" / "speeding" → speed_gt: X
+- "slower than X knots" / "speed < X" → speed_lt: X
+- "near Mumbai" / "at Mumbai port" / "Mumbai area" → port: "Mumbai"
+- "show 5" / "top 5" / "5 ships" / "limit 5" → limit: 5
+- "recently" / "latest" / "last hour" / "just detected" → time_range with value
 
-4. TEMPORAL: Queries with explicit time constraints as the primary focus
-   - Time is the main filter: "last hour", "today", "yesterday", "recent"
-   - Examples: "Ships detected in the last hour", "Recent dark ship events"
+## QUERY TYPES
 
-5. GENERAL: Conversational, greetings, or general knowledge queries NOT requiring database access
-   - Greetings, meta-questions, or general questions about the system
-   - Examples: "Hello", "What can you do?", "Explain AIS", "Who built you?"
+Classify into ONE of these types:
 
-For the query, also extract:
-- extracted_filters: Specific values mentioned (vessel_type, speed, port, mmsi, ship_name)
-- time_range: Time constraints if any (e.g., "last_hour", "today", "last_24h")
-- semantic_query: For HYBRID queries, the semantic/descriptive part
+### 1. STRUCTURED
+Database queries with specific, exact filters. No vague or descriptive terms.
+- User wants specific data points, counts, or filtered lists
+- All filters have concrete values
 
-Query: "{query}"
+Examples with EXACT JSON output:
 
-Respond with valid JSON only:
+Query: "Show me tankers near Mumbai"
+{{"query_type": "structured", "confidence": 0.95, "reasoning": "Specific vessel type and port filter", "extracted_filters": {{"vessel_type": "TANKER", "port": "Mumbai"}}, "time_range": null, "semantic_query": null}}
+
+Query: "List 5 dark ships"
+{{"query_type": "structured", "confidence": 0.95, "reasoning": "Specific filter for dark ships with limit", "extracted_filters": {{"is_dark_ship": true, "limit": 5}}, "time_range": null, "semantic_query": null}}
+
+Query: "Ships faster than 20 knots"
+{{"query_type": "structured", "confidence": 0.95, "reasoning": "Speed threshold filter", "extracted_filters": {{"speed_gt": 20}}, "time_range": null, "semantic_query": null}}
+
+Query: "Find cargo ships at Chennai port"
+{{"query_type": "structured", "confidence": 0.95, "reasoning": "Vessel type and port filter", "extracted_filters": {{"vessel_type": "CARGO", "port": "Chennai"}}, "time_range": null, "semantic_query": null}}
+
+### 2. SEMANTIC
+Pattern matching queries using vague, descriptive, or behavioral terms. No specific filter values.
+- User describes behavior or patterns without exact criteria
+- Uses words like: suspicious, unusual, anomalous, erratic, strange, similar, like
+
+Examples:
+- "Ships with suspicious behavior" → SEMANTIC, semantic_query: "suspicious behavior patterns"
+- "Any unusual vessel movements?" → SEMANTIC, semantic_query: "unusual vessel movements"
+- "Anomalies in shipping patterns" → SEMANTIC, semantic_query: "shipping pattern anomalies"
+- "Erratic navigation patterns" → SEMANTIC, semantic_query: "erratic navigation"
+
+### 3. HYBRID
+Queries combining BOTH specific filters AND semantic/descriptive components.
+- Has concrete filter values (type, port, speed) AND vague behavioral terms
+
+Examples:
+- "Tankers with suspicious behavior near Mumbai" → HYBRID, filters: {{vessel_type: "TANKER", port: "Mumbai"}}, semantic_query: "suspicious behavior"
+- "Dark ships acting erratically" → HYBRID, filters: {{is_dark_ship: true}}, semantic_query: "erratic behavior"
+- "Cargo ships with unusual speed patterns" → HYBRID, filters: {{vessel_type: "CARGO"}}, semantic_query: "unusual speed patterns"
+
+### 4. TEMPORAL
+Queries where TIME is the primary focus. Often combined with other filters.
+- Explicit time words: recently, latest, last hour, today, yesterday, past X hours
+- Recency is the main constraint
+
+Examples with EXACT JSON output:
+
+Query: "Recently detected dark ships"
+{{"query_type": "temporal", "confidence": 0.95, "reasoning": "Time-focused query with dark ship filter", "extracted_filters": {{"is_dark_ship": true}}, "time_range": {{"type": "relative", "value": "recent"}}, "semantic_query": null}}
+
+Query: "Ships detected in the last hour"
+{{"query_type": "temporal", "confidence": 0.95, "reasoning": "Explicit time constraint", "extracted_filters": null, "time_range": {{"type": "relative", "value": "1 hour"}}, "semantic_query": null}}
+
+Query: "Show me recently detected 5 dark ships"
+{{"query_type": "temporal", "confidence": 0.95, "reasoning": "Time-focused with dark ship filter and limit", "extracted_filters": {{"is_dark_ship": true, "limit": 5}}, "time_range": {{"type": "relative", "value": "recent"}}, "semantic_query": null}}
+
+Query: "Today's tanker movements"
+{{"query_type": "temporal", "confidence": 0.95, "reasoning": "Time-focused with vessel type filter", "extracted_filters": {{"vessel_type": "TANKER"}}, "time_range": {{"type": "relative", "value": "today"}}, "semantic_query": null}}
+
+### 5. GENERAL
+Conversational queries NOT requiring database access.
+- Greetings, help requests, explanations, meta-questions about the system
+- Questions about concepts (what is AIS, what is a dark ship)
+- No data lookup needed
+
+Examples:
+- "Hello" → GENERAL
+- "What can you do?" → GENERAL
+- "What is a dark ship?" → GENERAL
+- "Explain AIS tracking" → GENERAL
+- "How does this system work?" → GENERAL
+- "Thank you" → GENERAL
+
+## YOUR TASK
+
+Classify this query: "{query}"
+
+Respond with valid JSON:
 {{
     "query_type": "structured|semantic|hybrid|temporal|general",
     "confidence": 0.0-1.0,
-    "reasoning": "Brief explanation",
-    "extracted_filters": {{"vessel_type": "...", "speed_gt": 15, "port": "Mumbai", ...}} or null,
-    "time_range": {{"type": "relative", "value": "1 hour"}} or null,
-    "semantic_query": "the descriptive/semantic part" or null
-}}"""
+    "reasoning": "Brief explanation of classification",
+    "extracted_filters": {{"field": "value", ...}} or null,
+    "time_range": {{"type": "relative", "value": "1 hour|today|recent|..."}} or null,
+    "semantic_query": "the vague/descriptive part for semantic search" or null
+}}
+
+## CRITICAL RULES - MUST FOLLOW
+
+1. FIELD NAMES - Use ONLY these exact field names in extracted_filters:
+   - is_dark_ship (NOT: status, dark_ship, dark, is_dark)
+   - vessel_type (NOT: type, ship_type, vessel)
+   - speed_gt, speed_lt (NOT: speed, velocity)
+   - port (NOT: location, area, near)
+   - limit (NOT: count, top, max)
+
+2. FIELD VALUES:
+   - is_dark_ship: must be boolean true or false (NOT string "true" or "dark_ship")
+   - vessel_type: must be uppercase "TANKER", "CARGO", "CONTAINER", etc.
+   - port: must be capitalized "Mumbai", "Chennai", etc.
+   - limit: must be a number
+
+3. DARK SHIP QUERIES:
+   When user mentions "dark ship", "dark ships", "dark vessel", "AIS off":
+   CORRECT: {{"is_dark_ship": true}}
+   WRONG: {{"status": "dark_ship"}} or {{"status": "dark"}} or {{"dark_ship": true}}
+
+4. For TEMPORAL queries, always include time_range
+5. For HYBRID queries, include both extracted_filters AND semantic_query"""
 
     async def route(self, query: str) -> QueryRoute:
         """
@@ -142,7 +243,7 @@ Respond with valid JSON only:
         except Exception as e:
             logger.error(f"Query routing failed: {e}")
             # Fall back to rule-based routing
-            return self._rule_based_route(query)
+            return self._fallback_route(query)
 
     def route_sync(self, query: str) -> QueryRoute:
         """Synchronous version of route()."""
@@ -173,74 +274,19 @@ Respond with valid JSON only:
 
         except Exception as e:
             logger.error(f"Query routing failed: {e}")
-            return self._rule_based_route(query)
+            return self._fallback_route(query)
 
-    def _rule_based_route(self, query: str) -> QueryRoute:
+    def _fallback_route(self, query: str) -> QueryRoute:
         """
-        Fallback rule-based routing when LLM fails.
+        Safe fallback when LLM classification fails.
 
-        Uses keyword matching to classify queries.
+        Returns GENERAL type - safest default that won't trigger unnecessary pipeline.
         """
-        query_lower = query.lower()
-
-        # Semantic keywords
-        semantic_keywords = [
-            "suspicious", "unusual", "anomaly", "anomalous", "pattern",
-            "behavior", "similar", "like", "strange", "odd", "irregular"
-        ]
-
-        # Structured keywords (specific values)
-        structured_keywords = [
-            "tanker", "cargo", "container", "passenger", "fishing",
-            "knots", "speed", "faster", "slower", "count", "how many",
-            "near", "port", "mumbai", "chennai", "singapore", "dubai"
-        ]
-
-        # Temporal keywords
-        temporal_keywords = [
-            "last hour", "last day", "today", "yesterday", "recent",
-            "in the past", "24 hours", "this week"
-        ]
-
-        # General keywords
-        general_keywords = [
-            "hello", "hi", "hey", "help", "what can you do", "who are you",
-            "explain", "what is ais", "thank you", "thanks"
-        ]
-
-        has_semantic = any(kw in query_lower for kw in semantic_keywords)
-        has_structured = any(kw in query_lower for kw in structured_keywords)
-        has_temporal = any(kw in query_lower for kw in temporal_keywords)
-        has_general = any(kw in query_lower for kw in general_keywords)
-
-        # Extract basic filters
-        filters = self._extract_filters_rule_based(query)
-        time_range = self._extract_time_range(query)
-
-        # Determine type
-        if has_semantic and has_structured:
-            query_type = QueryType.HYBRID
-            reasoning = "Query has both specific filters and semantic/descriptive terms"
-        elif has_semantic:
-            query_type = QueryType.SEMANTIC
-            reasoning = "Query uses descriptive/semantic terms"
-        elif has_temporal and not has_structured:
-            query_type = QueryType.TEMPORAL
-            reasoning = "Query focuses on time constraints"
-        elif has_structured:
-            query_type = QueryType.STRUCTURED
-            reasoning = "Query has specific filters or asks for structured data"
-        else:
-            query_type = QueryType.GENERAL
-            reasoning = "Query appears conversational or general"
-
+        logger.warning(f"LLM classification failed, defaulting to GENERAL for: {query[:50]}...")
         return QueryRoute(
-            query_type=query_type,
-            confidence=0.7,  # Lower confidence for rule-based
-            reasoning=reasoning,
-            extracted_filters=filters if filters else None,
-            time_range=time_range,
-            semantic_query=query if has_semantic else None,
+            query_type=QueryType.GENERAL,
+            confidence=0.5,
+            reasoning="LLM classification failed, defaulting to conversational mode",
         )
 
     def _extract_filters_rule_based(self, query: str) -> Dict[str, Any]:

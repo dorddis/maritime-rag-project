@@ -132,6 +132,37 @@ async def stream_pipeline(
             "execution_time_ms": routing_time,
         })
 
+        # ============ SHORT-CIRCUIT FOR GENERAL QUERIES ============
+        if route.query_type == QueryType.GENERAL:
+            # Handle conversational queries without triggering data pipeline
+            answer_start = datetime.now(timezone.utc)
+
+            try:
+                executor = get_executor()
+                general_result = await executor._execute_general(query, route, {})
+                answer_content = general_result.get("explanation", "I'm here to help with maritime tracking queries.")
+            except Exception as e:
+                logger.error(f"General query failed: {e}")
+                answer_content = "I'm a maritime assistant. I can help you track ships, find anomalies, and answer questions about vessel data. Try asking about tankers, cargo ships, or dark ships!"
+
+            answer_time = (datetime.now(timezone.utc) - answer_start).total_seconds() * 1000
+            step_times["answer"] = answer_time
+
+            yield format_sse_event("answer", {
+                "status": "complete",
+                "content": answer_content,
+                "execution_time_ms": answer_time,
+            })
+
+            total_time = (datetime.now(timezone.utc) - start_time).total_seconds() * 1000
+            yield format_sse_event("done", {
+                "status": "complete",
+                "total_time_ms": total_time,
+                "step_times": step_times,
+                "result_count": 0,
+            })
+            return  # Exit early, skip data pipeline
+
         # Initialize result containers
         structured_results = []
         semantic_results = []

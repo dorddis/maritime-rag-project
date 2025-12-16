@@ -40,6 +40,7 @@ class TrackManager:
         self.stats = {
             "tracks_created": 0,
             "tracks_dropped": 0,
+            "tracks_merged": 0,
             "dark_ships_flagged": 0,
             "correlations": {"ais": 0, "radar": 0, "satellite": 0, "drone": 0},
         }
@@ -179,8 +180,13 @@ class TrackManager:
         if sensor_type == "ais":
             # AIS provides authoritative identity
             if detection.get("mmsi"):
+                new_mmsi = str(detection["mmsi"])
+
+                # Check for duplicate tracks with same MMSI and merge
+                self._merge_duplicate_mmsi_tracks(track, new_mmsi)
+
                 track.identity_source = IdentitySource.AIS
-                track.mmsi = str(detection["mmsi"])
+                track.mmsi = new_mmsi
                 track.ship_name = detection.get("ship_name")
                 track.vessel_type = detection.get("ship_type")
                 track.ais_last_seen = now
@@ -311,6 +317,83 @@ class TrackManager:
                 if (now - contrib.last_update).total_seconds() < threshold_s:
                     return True
         return False
+
+    def _merge_duplicate_mmsi_tracks(self, target_track: UnifiedTrack, mmsi: str):
+        """
+        Find and merge any other tracks with the same MMSI OR nearby unidentified tracks
+        into target_track. This handles cases where:
+        1. Same MMSI appears on multiple tracks (rare but possible)
+        2. Radar/satellite created a track before AIS identified it (common)
+        """
+        tracks_to_drop = []
+        merge_distance_m = 5000  # 5km merge radius for unidentified tracks
+
+        for track_id, track in self.tracks.items():
+            if track_id == target_track.track_id:
+                continue
+            if track.status == TrackStatus.DROPPED:
+                continue
+
+            should_merge = False
+            merge_reason = ""
+
+            # Case 1: Same MMSI
+            if track.mmsi == mmsi:
+                should_merge = True
+                merge_reason = "same MMSI"
+
+            # Case 2: Track has no MMSI and is spatially close
+            elif not track.mmsi and track.identity_source == IdentitySource.UNKNOWN:
+                distance = self._haversine_m(
+                    target_track.latitude, target_track.longitude,
+                    track.latitude, track.longitude
+                )
+                if distance < merge_distance_m:
+                    should_merge = True
+                    merge_reason = f"spatial proximity ({distance:.0f}m)"
+
+            if should_merge:
+                self._merge_track_data(target_track, track)
+                tracks_to_drop.append(track_id)
+                logger.info(
+                    f"Merged track {track_id} into {target_track.track_id} ({merge_reason}, MMSI: {mmsi})"
+                )
+
+        # Mark merged tracks as dropped
+        for track_id in tracks_to_drop:
+            self.tracks[track_id].status = TrackStatus.DROPPED
+            self.stats["tracks_merged"] += 1
+
+    def _haversine_m(self, lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+        """Calculate distance in meters between two points."""
+        import math
+        R = 6371000  # Earth radius in meters
+        lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+        return 2 * R * math.asin(math.sqrt(a))
+
+    def _merge_track_data(self, target: UnifiedTrack, source: UnifiedTrack):
+        """Merge data from source track into target track."""
+        # Merge sensor contributions
+        for sensor_type, contrib in source.sensor_contributions.items():
+            if sensor_type not in target.sensor_contributions:
+                target.sensor_contributions[sensor_type] = contrib
+                if sensor_type not in target.contributing_sensors:
+                    target.contributing_sensors.append(sensor_type)
+            else:
+                # Combine measurement counts
+                target.sensor_contributions[sensor_type].measurement_count += contrib.measurement_count
+
+        # Take the higher quality/update count
+        target.update_count += source.update_count
+        target.track_quality = max(target.track_quality, source.track_quality)
+
+        # Preserve dark ship detection if source had it
+        if source.is_dark_ship and not target.is_dark_ship:
+            target.is_dark_ship = source.is_dark_ship
+            target.dark_ship_confidence = source.dark_ship_confidence
 
     def _calculate_dark_confidence(self, track: UnifiedTrack) -> float:
         """Calculate confidence that track is a dark ship"""

@@ -349,7 +349,13 @@ If the user asks what you can do, explain that you can track ships, find anomali
         """Check if track matches filter criteria."""
         for key, value in filters.items():
             if key == "vessel_type":
-                if track.get("vessel_type", "").upper() != value.upper():
+                track_type = track.get("vessel_type", "").upper().replace("_", " ")
+                filter_type = value.upper().replace("_", " ")
+                # Skip filter if track has no vessel type (common in realtime data)
+                if not track_type:
+                    continue
+                # Match if filter type is contained in track type or vice versa
+                if filter_type not in track_type and track_type not in filter_type:
                     return False
             elif key == "speed_gt":
                 try:
@@ -366,8 +372,45 @@ If the user asks what you can do, explain that you can track ships, find anomali
             elif key == "is_dark_ship":
                 if str(track.get("is_dark_ship", "false")).lower() != str(value).lower():
                     return False
+            elif key == "port":
+                # Filter by proximity to known port coordinates
+                if not self._is_near_port(track, value):
+                    return False
+            elif key == "limit":
+                # Limit is handled elsewhere, skip here
+                continue
 
         return True
+
+    def _is_near_port(self, track: Dict[str, Any], port_name: str, radius_km: float = 100) -> bool:
+        """Check if track is within radius of a known port."""
+        try:
+            track_lat = float(track.get("latitude", 0))
+            track_lon = float(track.get("longitude", 0))
+
+            port_coords = settings.known_ports.get(port_name.lower())
+            if not port_coords:
+                return True  # If port not known, don't filter
+
+            port_lat, port_lon = port_coords
+
+            # Simple distance calculation (Haversine approximation)
+            import math
+            lat1, lon1 = math.radians(track_lat), math.radians(track_lon)
+            lat2, lon2 = math.radians(port_lat), math.radians(port_lon)
+
+            dlat = lat2 - lat1
+            dlon = lon2 - lon1
+
+            a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+            c = 2 * math.asin(math.sqrt(a))
+
+            # Earth radius in km
+            distance_km = 6371 * c
+
+            return distance_km <= radius_km
+        except (ValueError, TypeError):
+            return True  # If can't calculate, don't filter
 
     def _build_time_filter(self, time_range: Optional[Dict[str, Any]]) -> str:
         """Build SQL time filter from time range."""

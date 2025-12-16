@@ -211,21 +211,21 @@ export function DarkShipsPanel({ onSelectShip, className = "" }: DarkShipsPanelP
                       {ship.detected_by.map((sensor) => {
                         const Icon = SENSOR_ICONS[sensor] || Eye;
                         return (
-                          <Icon
-                            key={sensor}
-                            className="w-3 h-3"
-                            style={{
-                              color:
-                                sensor === "ais"
-                                  ? "#00d9ff"
-                                  : sensor === "radar"
-                                  ? "#ff6b6b"
-                                  : sensor === "satellite"
-                                  ? "#feca57"
-                                  : "#1dd1a1",
-                            }}
-                            title={sensor.toUpperCase()}
-                          />
+                          <span key={sensor} title={sensor.toUpperCase()}>
+                            <Icon
+                              className="w-3 h-3"
+                              style={{
+                                color:
+                                  sensor === "ais"
+                                    ? "#00d9ff"
+                                    : sensor === "radar"
+                                    ? "#ff6b6b"
+                                    : sensor === "satellite"
+                                    ? "#feca57"
+                                    : "#1dd1a1",
+                              }}
+                            />
+                          </span>
                         );
                       })}
                     </div>

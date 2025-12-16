@@ -153,7 +153,7 @@ class SQLAgent:
             # Try to extract SQL from the response
             sql = self._extract_sql(output)
 
-            # If we got SQL, validate and optionally re-run
+            # If we got SQL, validate and execute directly for consistent results
             if sql:
                 is_valid, error = self._validate_sql(sql)
                 if not is_valid:
@@ -165,6 +165,22 @@ class SQLAgent:
                         "explanation": f"Query blocked: {error}",
                         "error": error,
                     }
+
+                # Execute SQL directly to get structured results
+                try:
+                    raw_result = self.db.run(sql)
+                    # Parse the raw result (comes as string representation of list)
+                    parsed_results = self._parse_db_result(raw_result)
+                    return {
+                        "question": question,
+                        "sql": sql,
+                        "results": parsed_results,
+                        "row_count": len(parsed_results),
+                        "explanation": output,
+                        "error": None,
+                    }
+                except Exception as e:
+                    logger.warning(f"Direct SQL execution failed: {e}, falling back to extraction")
 
             return {
                 "question": question,
@@ -281,10 +297,36 @@ class SQLAgent:
         import ast
         results = []
 
+        # Pre-process: Convert datetime objects to strings for parsing
+        # Replace datetime.datetime(...) with a placeholder string
+        cleaned = re.sub(
+            r'datetime\.datetime\([^)]+\)',
+            '"datetime"',
+            output
+        )
+        # Also handle timedelta
+        cleaned = re.sub(
+            r'datetime\.timedelta\([^)]+\)',
+            '"timedelta"',
+            cleaned
+        )
+        # Handle timezone objects
+        cleaned = re.sub(
+            r'datetime\.timezone\([^)]+\)',
+            '"timezone"',
+            cleaned
+        )
+        # Handle tzinfo references
+        cleaned = re.sub(
+            r'tzinfo=[^,\)]+',
+            '',
+            cleaned
+        )
+
         # Look for list of tuples pattern: [(...), (...)] or [(...))]
         # This pattern appears in SQL query results
         list_pattern = r'\[(\([^)]+\)(?:\s*,\s*\([^)]+\))*)\]'
-        matches = re.findall(list_pattern, output)
+        matches = re.findall(list_pattern, cleaned)
 
         for match in matches:
             try:
@@ -307,7 +349,7 @@ class SQLAgent:
         # If no results yet, try to find any list literal in the output
         if not results:
             # Look for patterns like [('val1', 'val2', ...), ...]
-            for match in re.finditer(r'\[\([^\]]+\)\]', output):
+            for match in re.finditer(r'\[\([^\]]+\)\]', cleaned):
                 try:
                     rows = ast.literal_eval(match.group())
                     for row in rows:
@@ -349,6 +391,38 @@ class SQLAgent:
         if matches:
             return int(matches[-1])
         return 0
+
+    def _parse_db_result(self, raw_result: str) -> List[Dict]:
+        """Parse the raw database result string into structured data."""
+        import ast
+        results = []
+
+        if not raw_result or raw_result.strip() == '':
+            return results
+
+        # Clean datetime objects for parsing
+        cleaned = re.sub(r'datetime\.datetime\([^)]+\)', '"datetime"', raw_result)
+        cleaned = re.sub(r'datetime\.timedelta\([^)]+\)', '"timedelta"', cleaned)
+        cleaned = re.sub(r'datetime\.timezone\([^)]+\)', '"timezone"', cleaned)
+        cleaned = re.sub(r'tzinfo=[^,\)]+', '', cleaned)
+        cleaned = re.sub(r'Decimal\(([^)]+)\)', r'\1', cleaned)  # Handle Decimal
+
+        try:
+            # Try to parse as list of tuples
+            parsed = ast.literal_eval(cleaned)
+            if isinstance(parsed, list):
+                for row in parsed:
+                    if isinstance(row, tuple):
+                        result = {}
+                        for i, val in enumerate(row):
+                            result[f"col_{i}"] = val
+                        results.append(result)
+                    elif isinstance(row, dict):
+                        results.append(row)
+        except (ValueError, SyntaxError) as e:
+            logger.debug(f"Could not parse db result: {e}")
+
+        return results
 
     def get_table_info(self) -> str:
         """Get database table information."""
