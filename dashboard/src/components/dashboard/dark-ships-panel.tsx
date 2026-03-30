@@ -5,11 +5,13 @@
  *
  * Real-time panel showing flagged dark ships detected by the fusion engine.
  * Shows vessels with AIS turned off or never had AIS.
+ * In demo mode, fetches mock data regardless of Redis/fusion state.
  */
 
 import { useState, useEffect } from "react";
 import { useLogStore } from "@/stores/log-store";
 import { fetchDarkShips } from "@/lib/api";
+import { isDemoMode } from "@/lib/demo-mode";
 import type { DarkShipAlert } from "@/lib/types";
 import {
   AlertTriangle,
@@ -43,10 +45,13 @@ export function DarkShipsPanel({ onSelectShip, className = "" }: DarkShipsPanelP
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
 
+  const demoMode = isDemoMode();
+
   // Fetch dark ships periodically
   useEffect(() => {
     const fetchData = async () => {
-      if (!redisConnected) return;
+      // In demo mode, always fetch. In live mode, require redis connection.
+      if (!demoMode && !redisConnected) return;
 
       try {
         setLoading(true);
@@ -67,9 +72,10 @@ export function DarkShipsPanel({ onSelectShip, className = "" }: DarkShipsPanelP
     fetchData();
     const interval = setInterval(fetchData, 5000);
     return () => clearInterval(interval);
-  }, [redisConnected]);
+  }, [redisConnected, demoMode]);
 
-  const fusionRunning = status.fusion?.running ?? false;
+  // In demo mode, fusion is always "running"
+  const fusionRunning = demoMode ? true : (status.fusion?.running ?? false);
 
   // Format timestamp
   const formatTime = (timestamp: string) => {

@@ -1028,7 +1028,8 @@ def answer_multimodal_query(query, multimodal_results):
 **Timeline:** 2-3 weeks
 
 ### Key Libraries/Tools
-- `openai` (GPT-4 Vision, CLIP embeddings)
+- `openai` (GPT-4 for reasoning, CLIP embeddings)
+- `google-cloud-vision` (Google Cloud Vision API for OCR/image analysis)
 - `transformers` (CLIP, BLIP for vision-language)
 - `Pillow` (image processing)
 - `langchain` (multi-modal chains)
